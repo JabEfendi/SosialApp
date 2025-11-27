@@ -20,7 +20,6 @@ func Register(c *gin.Context) {
         c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
         return
     }
-
     hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(input.Password), bcrypt.DefaultCost)
 
     user := models.User{
@@ -30,7 +29,6 @@ func Register(c *gin.Context) {
     }
 
     db.DB.Create(&user)
-
     c.JSON(http.StatusOK, gin.H{"message": "Register success", "user": user})
 }
 
@@ -62,4 +60,18 @@ func Login(c *gin.Context) {
     }
 
     c.JSON(http.StatusOK, gin.H{"message": "Login success", "user": user})
+}
+
+func Test(c *gin.Context){
+    var users []models.User
+
+    if err := db.DB.Find(&users).Error; err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+        return
+    }
+
+    c.JSON(http.StatusOK, gin.H{
+        "message": "Data user ditemukan",
+        "users":   users,
+    })
 }
