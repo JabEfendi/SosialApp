@@ -49,13 +49,11 @@ func Login(c *gin.Context) {
     var user models.User
     db.DB.Where("email = ?", input.Email).First(&user)
 
-    // cek user
     if user.ID == 0 {
         c.JSON(http.StatusUnauthorized, gin.H{"error": "Email not found"})
         return
     }
 
-    // cek password
     if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(input.Password)); err != nil {
         c.JSON(http.StatusUnauthorized, gin.H{"error": "Incorrect password"})
         return

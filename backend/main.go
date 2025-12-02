@@ -9,10 +9,8 @@ import (
 func main() {
     r := gin.Default()
 
-    // Connect to DB
     db.ConnectDB()
 
-    // Register routes
     routes.UserRoutes(r)
 
     r.Run(":8080")
