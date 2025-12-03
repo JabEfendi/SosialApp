@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS users (
   provider VARCHAR(50) NOT NULL DEFAULT 'local',
   provider_id VARCHAR(255),
   avatar TEXT,
+  FCMToken VARCHAR,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
