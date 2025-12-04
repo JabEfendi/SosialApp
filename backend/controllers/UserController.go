@@ -576,18 +576,16 @@ type UpdateUserInput struct {
     Name      string `json:"name"`
     Username  string `json:"username"`
     Gender    string `json:"gender"`
-    Birthdate string `json:"birthdate"` // format: yyyy-mm-dd
+    Birthdate string `json:"birthdate"`
     Phone     string `json:"phone"`
     Bio       string `json:"bio"`
     Country   string `json:"country"`
     Address   string `json:"address"`
-    Password  string `json:"password"` // optional
+    Password  string `json:"password"`
 }
 
 func UpdateUser(c *gin.Context) {
     var input UpdateUserInput
-
-    // Ambil user_id dari param
     userID := c.Param("id")
 
     if err := c.ShouldBindJSON(&input); err != nil {
@@ -595,14 +593,12 @@ func UpdateUser(c *gin.Context) {
         return
     }
 
-    // Cek apakah user exist
     var user models.User
     if err := db.DB.First(&user, userID).Error; err != nil {
         c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
         return
     }
 
-    // Update data
     user.Name = input.Name
     user.Username = input.Username
     user.Gender = input.Gender
@@ -612,7 +608,6 @@ func UpdateUser(c *gin.Context) {
     user.Country = input.Country
     user.Address = input.Address
 
-    // Jika ada password -> hash ulang
     if input.Password != "" {
         hashed, _ := bcrypt.GenerateFromPassword([]byte(input.Password), bcrypt.DefaultCost)
         user.Password = string(hashed)
