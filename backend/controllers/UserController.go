@@ -236,7 +236,6 @@ func RegisterResend(c *gin.Context) {
 
 
 
-// Test kirim notif manual
 func SendTestNotification(c *gin.Context) {
     var input struct {
         UserID uint   `json:"user_id" binding:"required"`
@@ -249,7 +248,6 @@ func SendTestNotification(c *gin.Context) {
         return
     }
 
-    // Ambil FCM token user
     var token models.UserFCMToken
     if err := db.DB.Where("user_id = ?", input.UserID).
         Order("id desc").
@@ -258,7 +256,6 @@ func SendTestNotification(c *gin.Context) {
         return
     }
 
-    // Simpan ke DB notifications
     notif := models.Notification{
         UserID: input.UserID,
         Title:  input.Title,
@@ -266,7 +263,6 @@ func SendTestNotification(c *gin.Context) {
     }
     db.DB.Create(&notif)
 
-    // Kirim push notif
     if token.FCMToken != "" {
         helpers.SendFCMToken(token.FCMToken, input.Title, input.Body)
     }
@@ -285,18 +281,14 @@ type SaveFCMTokenInput struct {
 
 func SaveFCMToken(c *gin.Context) {
 
-    fmt.Println("➡️ SaveFCMToken() DIPANGGIL") // CEK ROUTE MASUK
+    fmt.Println("➡️ SaveFCMToken() DIPANGGIL")
 
     var input SaveFCMTokenInput
 
-    // Log raw body
     body, _ := io.ReadAll(c.Request.Body)
     fmt.Println("📥 Raw Body:", string(body))
-
-    // Reset body agar bisa dibaca ulang
     c.Request.Body = io.NopCloser(bytes.NewBuffer(body))
 
-    // Validasi input
     if err := c.ShouldBindJSON(&input); err != nil {
         fmt.Println("❌ ERROR BIND JSON:", err)
         c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
