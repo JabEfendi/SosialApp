@@ -13,6 +13,10 @@ func UserRoutes(r *gin.Engine) {
     r.POST("/register/verify-otp", controllers.RegisterVerify)
     r.POST("/register/resend-otp", controllers.RegisterResend)
 
+    r.POST("/notif/test", controllers.SendTestNotification)
+    r.POST("/save-fcm-token", controllers.SaveFCMToken)
+    r.PUT("/user/:id", controllers.UpdateUser)
+
     r.POST("/auth/google", controllers.GoogleLogin)
     r.POST("/auth/facebook", controllers.FacebookLogin)
 

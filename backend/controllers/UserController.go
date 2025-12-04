@@ -173,6 +173,34 @@ func RegisterVerify(c *gin.Context) {
     db.DB.Delete(&temp)
     db.DB.Delete(&otpData)
 
+
+		// Ambil token FCM user
+		var token models.UserFCMToken
+		db.DB.Where("user_id = ?", user.ID).Last(&token)
+
+		// Buat greeting message
+		message := fmt.Sprintf("Halo %s! Akun kamu berhasil dibuat pada %s",
+				user.Name,
+				time.Now().Format("02 Jan 2006"),
+		)
+
+		// Simpan ke tabel notification
+		notif := models.Notification{
+				UserID: user.ID,
+				Title:  "Akun Berhasil Dibuat 🎉",
+				Message: message,
+		}
+		db.DB.Create(&notif)
+
+		// Kirim push notif (jika ada token)
+		if token.FCMToken != "" {
+				helpers.SendFCMToken(token.FCMToken,
+						"Akun Berhasil Dibuat 🎉",
+						message,
+				)
+		}
+
+
     c.JSON(200, gin.H{
         "message": "Akun berhasil dibuat",
         "user":    user,
@@ -207,6 +235,102 @@ func RegisterResend(c *gin.Context) {
 }
 
 
+
+// Test kirim notif manual
+func SendTestNotification(c *gin.Context) {
+    var input struct {
+        UserID uint   `json:"user_id" binding:"required"`
+        Title  string `json:"title" binding:"required"`
+        Body   string `json:"body" binding:"required"`
+    }
+
+    if err := c.ShouldBindJSON(&input); err != nil {
+        c.JSON(400, gin.H{"error": err.Error()})
+        return
+    }
+
+    // Ambil FCM token user
+    var token models.UserFCMToken
+    if err := db.DB.Where("user_id = ?", input.UserID).
+        Order("id desc").
+        First(&token).Error; err != nil {
+        c.JSON(400, gin.H{"error": "FCM token user tidak ditemukan"})
+        return
+    }
+
+    // Simpan ke DB notifications
+    notif := models.Notification{
+        UserID: input.UserID,
+        Title:  input.Title,
+        Message: input.Body,
+    }
+    db.DB.Create(&notif)
+
+    // Kirim push notif
+    if token.FCMToken != "" {
+        helpers.SendFCMToken(token.FCMToken, input.Title, input.Body)
+    }
+
+    c.JSON(200, gin.H{
+        "message": "Notifikasi terkirim",
+        "sent_to": token.FCMToken,
+    })
+}
+
+type SaveFCMTokenInput struct {
+    UserID   uint   `json:"user_id" binding:"required"`
+    FCMToken string `json:"fcm_token" binding:"required"`
+    Device   string `json:"device" binding:"required"`
+}
+
+func SaveFCMToken(c *gin.Context) {
+
+    fmt.Println("➡️ SaveFCMToken() DIPANGGIL") // CEK ROUTE MASUK
+
+    var input SaveFCMTokenInput
+
+    // Log raw body
+    body, _ := io.ReadAll(c.Request.Body)
+    fmt.Println("📥 Raw Body:", string(body))
+
+    // Reset body agar bisa dibaca ulang
+    c.Request.Body = io.NopCloser(bytes.NewBuffer(body))
+
+    // Validasi input
+    if err := c.ShouldBindJSON(&input); err != nil {
+        fmt.Println("❌ ERROR BIND JSON:", err)
+        c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+        return
+    }
+
+    fmt.Println("✔️ JSON input terbind:", input)
+
+    data := models.UserFCMToken{
+        UserID:   input.UserID,
+        FCMToken: input.FCMToken,
+        Device:   input.Device,
+    }
+
+    fmt.Println("🟦 Data sebelum simpan:", data)
+
+    err := db.DB.
+        Where("user_id = ? AND device = ?", input.UserID, input.Device).
+        Assign(data).
+        FirstOrCreate(&data).Error
+
+    if err != nil {
+        fmt.Println("❌ ERROR QUERY DB:", err)
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save FCM token"})
+        return
+    }
+
+    fmt.Println("✅ SUCCESS — Data tersimpan:", data)
+
+    c.JSON(http.StatusOK, gin.H{
+        "message": "FCM token saved successfully",
+        "data":    data,
+    })
+}
 
 
 
@@ -448,7 +572,62 @@ func FacebookLogin(c *gin.Context) {
 
 
 
+type UpdateUserInput struct {
+    Name      string `json:"name"`
+    Username  string `json:"username"`
+    Gender    string `json:"gender"`
+    Birthdate string `json:"birthdate"` // format: yyyy-mm-dd
+    Phone     string `json:"phone"`
+    Bio       string `json:"bio"`
+    Country   string `json:"country"`
+    Address   string `json:"address"`
+    Password  string `json:"password"` // optional
+}
 
+func UpdateUser(c *gin.Context) {
+    var input UpdateUserInput
+
+    // Ambil user_id dari param
+    userID := c.Param("id")
+
+    if err := c.ShouldBindJSON(&input); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+        return
+    }
+
+    // Cek apakah user exist
+    var user models.User
+    if err := db.DB.First(&user, userID).Error; err != nil {
+        c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+        return
+    }
+
+    // Update data
+    user.Name = input.Name
+    user.Username = input.Username
+    user.Gender = input.Gender
+    user.Birthdate = input.Birthdate
+    user.Phone = input.Phone
+    user.Bio = input.Bio
+    user.Country = input.Country
+    user.Address = input.Address
+
+    // Jika ada password -> hash ulang
+    if input.Password != "" {
+        hashed, _ := bcrypt.GenerateFromPassword([]byte(input.Password), bcrypt.DefaultCost)
+        user.Password = string(hashed)
+    }
+
+    if err := db.DB.Save(&user).Error; err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update user"})
+        return
+    }
+
+    c.JSON(http.StatusOK, gin.H{
+        "message": "User updated successfully",
+        "user":    user,
+    })
+}
 
 
 

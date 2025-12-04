@@ -7,5 +7,4 @@ type LoginLog struct {
     Device     string `json:"device"`
     Location   string `json:"location"`
     UserAgent  string `json:"user_agent"`
-    LoggedInAt string `json:"logged_in_at"`
 }
