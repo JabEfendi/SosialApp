@@ -6,21 +6,17 @@ import (
 )
 
 func UserRoutes(r *gin.Engine) {
-    // r.POST("/register", controllers.Register)
-    r.POST("/login", controllers.Login)
+    user := r.Group("/user")
 
-    r.POST("/register/request-otp", controllers.RegisterRequest)
-    r.POST("/register/verify-otp", controllers.RegisterVerify)
-    r.POST("/register/resend-otp", controllers.RegisterResend)
+    user.POST("/login", controllers.Login)
 
-    r.POST("/notif/test", controllers.SendTestNotification)
-    r.POST("/save-fcm-token", controllers.SaveFCMToken)
-    r.PUT("/user/:id", controllers.UpdateUser)
+    reg := user.Group("/register")
+    reg.POST("/request-otp", controllers.RegisterRequest)
+    reg.POST("/verify-otp", controllers.RegisterVerify)
+    reg.POST("/resend-otp", controllers.RegisterResend)
 
-    r.POST("/auth/google", controllers.GoogleLogin)
-    r.POST("/auth/facebook", controllers.FacebookLogin)
-
-    r.GET("/test", controllers.Test)
-    r.GET("/testlog", controllers.Ceklog)
+    user.POST("/save-fcm-token", controllers.SaveFCMToken)
+    user.PUT("/:id", controllers.UpdateUser)
 }
+
 

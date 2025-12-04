@@ -14,6 +14,9 @@ func main() {
     firebase.InitFirebase()
 
     routes.UserRoutes(r)
+    routes.AuthRoutes(r)
+    routes.SystemRoutes(r)
 
     r.Run(":8080")
 }
+
