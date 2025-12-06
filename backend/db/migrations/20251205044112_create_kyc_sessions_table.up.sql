@@ -1,0 +1,8 @@
+CREATE TABLE IF NOT EXISTS kyc_sessions (
+  id SERIAL PRIMARY KEY,
+  user_id INT REFERENCES users(id),
+  data_json JSON NOT NULL,
+  used BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);

@@ -1,0 +1,40 @@
+package routes
+
+import (
+    "github.com/gin-gonic/gin"
+    "backend/controllers"
+)
+
+func SystemRoutes(r *gin.Engine) {
+    r.GET("/test", controllers.Test)
+    r.GET("/testlog", controllers.Ceklog)
+    r.POST("/notif/test", controllers.SendTestNotification)
+
+    r.POST("/kyc", controllers.SubmitOrUpdateKyc)
+    r.POST("/room", controllers.CreateRoom)
+
+
+    user := r.Group("/user")
+        user.POST("/login", controllers.Login)
+        user.POST("/upload-avatar", controllers.UploadAvatar)
+        user.POST("/save-fcm-token", controllers.SaveFCMToken)
+        user.PUT("/:id", controllers.UpdateUser)
+        user.PUT("/changepassword/:id", controllers.ChangePass)
+
+    reg := r.Group("/register")
+        reg.POST("/request-otp", controllers.RegisterRequest)
+        reg.POST("/verify-otp", controllers.RegisterVerify)
+        reg.POST("/resend-otp", controllers.RegisterResend)
+
+    auth := r.Group("/auth")
+        auth.POST("/google", controllers.GoogleLogin)
+        auth.POST("/facebook", controllers.FacebookLogin)
+        
+    room := r.Group("/room")
+        room.POST("/join", controllers.JoinRoom)
+        room.GET("/:id/participants", controllers.GetRoomParticipants)
+        room.GET("/list", controllers.ListRoom)
+
+}
+
+

@@ -1,0 +1,21 @@
+CREATE TABLE IF NOT EXISTS rooms (
+  id SERIAL PRIMARY KEY,
+  user_id INT REFERENCES users(id),
+  name VARCHAR(255) NOT NULL,
+  description TEXT,
+  start_time TIMESTAMP WITH TIME ZONE,
+  end_time TIMESTAMP WITH TIME ZONE,
+  duration INTERVAL,
+  location VARCHAR(255),
+  capacity INT,
+  fee_per_person DECIMAL(10,2),
+  gender VARCHAR(20),
+  age_group VARCHAR(50),
+  is_regular BOOLEAN DEFAULT false,
+  auto_approve BOOLEAN DEFAULT false,
+  send_notification BOOLEAN DEFAULT true,
+  image_url VARCHAR(255),
+  status VARCHAR(20) DEFAULT 'active', 
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);

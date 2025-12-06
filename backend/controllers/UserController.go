@@ -12,6 +12,8 @@ import (
 	"strings"
 	"time"
 	"fmt"
+    "os"
+    "path/filepath"
 
 	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
@@ -29,51 +31,6 @@ type RegisterInput struct {
     Country   string `json:"country"`
     Address   string `json:"address"`
 }
-
-
-// func Register(c *gin.Context) {
-//     var input RegisterInput
-// 	var birthdate time.Time
-//     if err := c.ShouldBindJSON(&input); err != nil {
-//         c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-//         return
-//     }
-
-//     hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(input.Password), bcrypt.DefaultCost)
-
-// 		// if input.Birthdate == "" {
-// 		// 		birthdate = "0001-01-01"
-// 		// } else {
-// 		// 	birthdate = input.Birthdate
-// 		// }
-
-//     user := models.User{
-//         Name:      input.Name,
-//         Username:  input.Username,
-//         Email:     input.Email,
-//         Password:  string(hashedPassword),
-//         Gender:    input.Gender,
-//         Birthdate: 	birthdate.Format("2006-01-02"),
-//         Phone:     input.Phone,
-//         Bio:       input.Bio,
-//         Country:   input.Country,
-//         Address:   input.Address,
-//         Provider:  "local",
-//     }
-
-//     // db.DB.Create(&user)
-// 		result := db.DB.Create(&user)
-// 		fmt.Println("Error:", result.Error)
-// 		fmt.Println("RowsAffected:", result.RowsAffected)
-
-//     c.JSON(http.StatusOK, gin.H{
-//         "message": "Register sukses (tanpa notifikasi karena token kosong)",
-//         "user":    user,
-//     })
-// }
-
-
-
 
 func RegisterRequest(c *gin.Context) {
     var input RegisterInput
@@ -124,8 +81,6 @@ func RegisterRequest(c *gin.Context) {
         "email":   input.Email,
     })
 }
-
-
 
 func RegisterVerify(c *gin.Context) {
     var input struct {
@@ -207,8 +162,6 @@ func RegisterVerify(c *gin.Context) {
     })
 }
 
-
-
 func RegisterResend(c *gin.Context) {
     var input struct {
         Email string `json:"email" binding:"required,email"`
@@ -235,7 +188,8 @@ func RegisterResend(c *gin.Context) {
 }
 
 
-
+// _________________________________________________________________________________________________
+// Notif
 func SendTestNotification(c *gin.Context) {
     var input struct {
         UserID uint   `json:"user_id" binding:"required"`
@@ -273,6 +227,9 @@ func SendTestNotification(c *gin.Context) {
     })
 }
 
+
+// _________________________________________________________________________________________________
+// token fcm untuk notif
 type SaveFCMTokenInput struct {
     UserID   uint   `json:"user_id" binding:"required"`
     FCMToken string `json:"fcm_token" binding:"required"`
@@ -325,8 +282,7 @@ func SaveFCMToken(c *gin.Context) {
 }
 
 
-
-
+// _________________________________________________________________________________________________
 // Login
 type LoginInput struct {
 	Email    string `json:"email" binding:"required,email"`
@@ -359,6 +315,53 @@ func Login(c *gin.Context) {
 }
 
 
+// _________________________________________________________________________________________________
+// change password
+func ChangePass(c *gin.Context) {
+    userID := c.Param("id")
+
+    var input struct {
+        OldPassword string `json:"old_password"`
+        NewPassword string `json:"new_password"`
+    }
+
+    if err := c.ShouldBindJSON(&input); err != nil {
+        c.JSON(400, gin.H{"error": err.Error()})
+        return
+    }
+
+    var user models.User
+    if err := db.DB.Where("id = ?", userID).First(&user).Error; err != nil {
+        c.JSON(400, gin.H{"error": "User tidak ditemukan"})
+        return
+    }
+
+    if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(input.OldPassword)); err != nil {
+        c.JSON(400, gin.H{"error": "Password lama salah"})
+        return
+    }
+
+    hashedPassword, err := bcrypt.GenerateFromPassword([]byte(input.NewPassword), bcrypt.DefaultCost)
+    if err != nil {
+        c.JSON(500, gin.H{"error": "Gagal meng-hash password baru"})
+        return
+    }
+
+    user.Password = string(hashedPassword)
+    if err := db.DB.Save(&user).Error; err != nil {
+        c.JSON(500, gin.H{"error": "Gagal update password"})
+        return
+    }
+
+    c.JSON(200, gin.H{
+        "message": "Password berhasil diperbarui!",
+    })
+}
+
+
+
+// _________________________________________________________________________________________________
+// log last login
 // Login log
 func createLoginLog(c *gin.Context, userID uint) {
     log := models.LoginLog{
@@ -373,7 +376,8 @@ func createLoginLog(c *gin.Context, userID uint) {
 }
 
 
-
+// _________________________________________________________________________________________________
+// auth
 // Google
 type GoogleCodeInput struct {
 	Code string `json:"code" binding:"required"`
@@ -474,10 +478,6 @@ func GoogleLogin(c *gin.Context) {
 	})
 }
 
-
-
-// BELOM KELAR DARI SINI
-// MASIH STUCK DI TESTING KARNA DEVELOPER FB DI AKUN GUA NTAH KENAPA KAGAK BISA
 // FB
 type FacebookTokenInput struct {
 	AccessToken string `json:"access_token" binding:"required"`
@@ -562,8 +562,8 @@ func FacebookLogin(c *gin.Context) {
 }
 
 
-
-
+// _________________________________________________________________________________________________
+// update
 type UpdateUserInput struct {
     Name      string `json:"name"`
     Username  string `json:"username"`
@@ -617,9 +617,57 @@ func UpdateUser(c *gin.Context) {
 }
 
 
+// _________________________________________________________________________________________________
+// upload photo
+func UploadAvatar(c *gin.Context) {
+    userID := c.PostForm("user_id")
+    if userID == "" {
+        c.JSON(400, gin.H{"error": "user_id is required"})
+        return
+    }
+
+    file, err := c.FormFile("photo")
+    if err != nil {
+        c.JSON(400, gin.H{"error": "photo file is required"})
+        return
+    }
+
+    if !strings.Contains(file.Header.Get("Content-Type"), "image") {
+        c.JSON(400, gin.H{"error": "Only image files are allowed"})
+        return
+    }
+
+    filename := fmt.Sprintf("%s-%d%s",
+        userID,
+        time.Now().Unix(),
+        filepath.Ext(file.Filename),
+    )
+
+    uploadPath := "uploads/avatars"
+    os.MkdirAll(uploadPath, os.ModePerm)
+
+    fullPath := uploadPath + "/" + filename
+    baseURL := "https://testtestdomaingweh.com/"
+    avatarURL := baseURL + fullPath
+
+    if err := c.SaveUploadedFile(file, fullPath); err != nil {
+        c.JSON(500, gin.H{"error": "Failed to save file"})
+        return
+    }
+
+    db.DB.Model(&models.User{}).
+        Where("id = ?", userID).
+        Update("avatar", avatarURL)
+
+    c.JSON(200, gin.H{
+        "message": "Profile photo updated",
+        "avatar_url": avatarURL,
+    })
+}
 
 
-
+// _________________________________________________________________________________________________
+// test
 func Test(c *gin.Context) {
 	var users []models.User
 

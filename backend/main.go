@@ -13,8 +13,6 @@ func main() {
     db.ConnectDB()
     firebase.InitFirebase()
 
-    routes.UserRoutes(r)
-    routes.AuthRoutes(r)
     routes.SystemRoutes(r)
 
     r.Run(":8080")
