@@ -11,6 +11,7 @@ func main() {
     r := gin.Default()
 
     db.ConnectDB()
+    
     firebase.InitFirebase()
 
     routes.SystemRoutes(r)

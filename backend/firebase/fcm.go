@@ -4,8 +4,8 @@ import (
     "context"
     "log"
 
-    firebase "firebase.google.com/go"
     "firebase.google.com/go/messaging"
+    firebase "firebase.google.com/go"
     "google.golang.org/api/option"
 )
 
@@ -14,17 +14,13 @@ var App *firebase.App
 func InitFirebase() {
     opt := option.WithCredentialsFile("serviceAccountKey.json")
 
-    firebaseConfig := &firebase.Config{
-        ProjectID: "sosialapp-reaction",
-    }
-
-    app, err := firebase.NewApp(context.Background(), firebaseConfig, opt)
+    app, err := firebase.NewApp(context.Background(), nil, opt)
     if err != nil {
-        log.Fatalf("Error initializing Firebase: %v", err)
+        log.Fatalf("Firebase init failed: %v", err)
     }
 
     App = app
-    log.Println("Firebase berhasil diinisialisasi!")
+    log.Println("Firebase Firestore initialized!")
 }
 
 func SendNotification(token string, title string, body string) (string, error) {

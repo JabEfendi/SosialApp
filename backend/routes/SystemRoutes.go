@@ -35,6 +35,21 @@ func SystemRoutes(r *gin.Engine) {
         room.GET("/:id/participants", controllers.GetRoomParticipants)
         room.GET("/list", controllers.ListRoom)
 
+    chat := r.Group("/chat")
+	{
+		chat.POST("/send", controllers.SendMessage)
+		chat.GET("/:roomID/messages", controllers.GetMessages)
+		chat.GET("/:roomID/stream", controllers.GetRealtimeStream)
+	}
+
+    direct := r.Group("/direct")
+    {
+        direct.POST("/send", controllers.SendDirectMessage)
+        direct.GET("/:threadID/messages", controllers.GetDirectMessages)
+        //note remember ini untuk update status pesan anjay tapi ini dari receivernya
+        direct.PUT("/:threadID/delivered/:userID", controllers.MarkDirectDelivered)
+    }
+
 }
 
 
