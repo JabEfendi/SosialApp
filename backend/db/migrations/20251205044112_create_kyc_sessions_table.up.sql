@@ -3,6 +3,7 @@ CREATE TABLE IF NOT EXISTS kyc_sessions (
   user_id INT REFERENCES users(id),
   data_json JSON NOT NULL,
   used BOOLEAN DEFAULT FALSE,
+  Status VARCHAR(20) NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );

@@ -7,6 +7,7 @@ import (
     "backend/db"
     "backend/firebase"
     "backend/models"
+    "net/http"
 
     "github.com/gin-gonic/gin"
 )
@@ -191,4 +192,57 @@ func MarkDirectDelivered(c *gin.Context) {
         "status": "success",
         "message": "Messages marked as delivered",
     })
+}
+
+type CommunityChatInput struct {
+    CommunityID uint   `json:"community_id"`
+    UserID      uint   `json:"user_id"`
+    Message     string `json:"message"`
+}
+
+func SendCommunityMessage(c *gin.Context) {
+    var input CommunityChatInput
+    if err := c.ShouldBindJSON(&input); err != nil {
+        c.JSON(400, gin.H{"error": err.Error()})
+        return
+    }
+
+    var member models.CommunityMember
+    if err := db.DB.
+        Where("community_id = ? AND user_id = ? AND status = 'approved'",
+            input.CommunityID, input.UserID).
+        First(&member).Error; err != nil {
+
+        c.JSON(http.StatusForbidden, gin.H{
+            "error": "User not member",
+        })
+        return
+    }
+
+    msg := models.CommunityChatMessage{
+        CommunityID: input.CommunityID,
+        UserID:      input.UserID,
+        Message:     input.Message,
+    }
+
+    if err := db.DB.Create(&msg).Error; err != nil {
+        c.JSON(500, gin.H{"error": "failed save the chat"})
+        return
+    }
+
+    c.JSON(200, gin.H{
+        "status": "success",
+        "data":   msg,
+    })
+}
+
+func GetCommunityMessages(c *gin.Context) {
+    communityID := c.Param("communityID")
+
+    var messages []models.CommunityChatMessage
+    db.DB.Where("community_id = ?", communityID).
+        Order("created_at ASC").
+        Find(&messages)
+
+    c.JSON(200, messages)
 }

@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS rooms (
   start_time TIMESTAMP WITH TIME ZONE,
   end_time TIMESTAMP WITH TIME ZONE,
   duration INTERVAL,
-  location VARCHAR(255),
+  map_loc_id INT,
   capacity INT,
   fee_per_person DECIMAL(10,2),
   gender VARCHAR(20),

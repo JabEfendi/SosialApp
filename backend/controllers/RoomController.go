@@ -11,58 +11,71 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func CreateRoom(c *gin.Context) {
-    var input struct {
-        UserID           uint   `json:"user_id"`
-        Name             string `json:"name"`
-        Description      string `json:"description"`
-        StartTime        string `json:"start_time"`
-        EndTime          string `json:"end_time"`
-        Duration         string `json:"duration"`
-        Location         string `json:"location"`
-        Capacity         int    `json:"capacity"`
-        FeePerPerson     float64 `json:"fee_per_person"`
-        Gender           string `json:"gender"`
-        AgeGroup         string `json:"age_group"`
-        IsRegular        bool   `json:"is_regular"`
-        AutoApprove      bool   `json:"auto_approve"`
-        SendNotification bool   `json:"send_notification"`
-        ImageURL         string `json:"image_url"`
-    }
+type InputRoom struct {
+    UserID           uint    `json:"user_id" binding:"required"`
+    MapLocID         uint    `json:"map_loc_id" binding:"required"`
+    Name             string  `json:"name" binding:"required"`
+    Description      string  `json:"description" binding:"required"`
+    StartTime        string  `json:"start_time" binding:"required,datetime=2006-01-02 15:04:05"`
+    EndTime          string  `json:"end_time"`
+    Duration         int  `json:"duration" binding:"required"`
+    Capacity         int     `json:"capacity"`
+    FeePerPerson     float64 `json:"fee_per_person"`
+    Gender           string  `json:"gender"`
+    AgeGroup         string  `json:"age_group"`
+    IsRegular        bool    `json:"is_regular"`
+    AutoApprove      bool    `json:"auto_approve"`
+    SendNotification bool    `json:"send_notification"`
+    ImageURL         string  `json:"image_url"`
+}
 
+func CreateRoom(c *gin.Context) {
+    var input InputRoom
     if err := c.ShouldBindJSON(&input); err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+        c.JSON(http.StatusBadRequest, gin.H{
+            "error": "Validation failed",
+            "details": err.Error(),
+        })
         return
     }
 
     var kyc models.KycSession
     if err := db.DB.Where("user_id = ? AND used = false", input.UserID).First(&kyc).Error; err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"error": "KYC belum submit atau sudah dipakai"})
+        c.JSON(http.StatusBadRequest, gin.H{"error": "KYC has not been submitted or has been used"})
         return
     }
 
-		layout := "2006-01-02 15:04:05"
+    layout := "2006-01-02 15:04:05"
 
-		startTime, err := time.ParseInLocation(layout, input.StartTime, time.Local)
-		if err != nil {
-				c.JSON(400, gin.H{"error": "Invalid start_time format. Use: YYYY-MM-DD HH:MM:SS"})
-				return
-		}
+    startTime, err := time.ParseInLocation(layout, input.StartTime, time.Local)
+    if err != nil {
+            c.JSON(400, gin.H{"error": "Invalid start_time format. Use: YYYY-MM-DD HH:MM:SS"})
+            return
+    }
 
-		endTime, err := time.ParseInLocation(layout, input.EndTime, time.Local)
-		if err != nil {
-				c.JSON(400, gin.H{"error": "Invalid end_time format. Use: YYYY-MM-DD HH:MM:SS"})
-				return
-		}
+    endTime, err := time.ParseInLocation(layout, input.EndTime, time.Local)
+    if err != nil {
+            c.JSON(400, gin.H{"error": "Invalid end_time format. Use: YYYY-MM-DD HH:MM:SS"})
+            return
+    }
+    
+    var mapLoc models.MapLoc
+    if err := db.DB.
+        Where("id = ? AND is_active = true", input.MapLocID).
+        First(&mapLoc).Error; err != nil {
+
+        c.JSON(400, gin.H{"error": "Invalid or inactive map location"})
+        return
+    }
 
     room := models.Room{
         UserID:           input.UserID,
+        MapLocID:         &input.MapLocID,
         Name:             input.Name,
         Description:      input.Description,
         StartTime:        startTime,
         EndTime:          endTime,
-        Duration:         input.Duration,
-        Location:         input.Location,
+        Duration:         time.Duration(input.Duration) * time.Minute,
         Capacity:         input.Capacity,
         FeePerPerson:     input.FeePerPerson,
         Gender:           input.Gender,
@@ -120,26 +133,26 @@ func JoinRoom(c *gin.Context) {
     }
 
     if room.Status != "active" {
-        c.JSON(400, gin.H{"error": "Room tidak aktif"})
+        c.JSON(400, gin.H{"error": "Rooms are not active"})
         return
     }
 
     var count int64
     db.DB.Model(&models.RoomParticipant{}).Where("room_id = ?", room.ID).Count(&count)
 
-    if int(count) >= room.Capacity {
-        c.JSON(400, gin.H{"error": "Room sudah penuh"})
+    if room.Capacity > 0 && int(count) >= room.Capacity {
+        c.JSON(400, gin.H{"error": "The room is full"})
         return
     }
 
     var existing models.RoomParticipant
     if err := db.DB.Where("room_id = ? AND user_id = ?", room.ID, input.UserID).First(&existing).Error; err == nil {
-        c.JSON(400, gin.H{"error": "User sudah join room ini"})
+        c.JSON(400, gin.H{"error": "User has joined this room"})
         return
     }
     var checkuser models.User
     if err := db.DB.Where("id = ?", input.UserID).First(&checkuser).Error; err != nil {
-        c.JSON(400, gin.H{"error": "Mohon Login Terlebih Dahulu"})
+        c.JSON(400, gin.H{"error": "Please Login First"})
         return
     }
 
@@ -151,7 +164,7 @@ func JoinRoom(c *gin.Context) {
     db.DB.Create(&participant)
 
     c.JSON(200, gin.H{
-        "message": "Berhasil join room",
+        "message": "Successfully joined the room",
         "data":    participant,
     })
 }
@@ -162,7 +175,7 @@ func GetRoomParticipants(c *gin.Context) {
 
     var participants []models.RoomParticipant
     if err := db.DB.Where("room_id = ?", roomID).Find(&participants).Error; err != nil {
-        c.JSON(400, gin.H{"error": "Gagal mengambil peserta"})
+        c.JSON(400, gin.H{"error": "Failed to take participants"})
         return
     }
 
@@ -186,17 +199,128 @@ func GetRoomParticipants(c *gin.Context) {
     })
 }
 
-func ListRoom(c *gin.Context){
-    // roomID := c.Param("id")
+func ListRoom(c *gin.Context) {
+    lat := c.Query("lat")
+    lng := c.Query("lng")
+
+    if lat == "" || lng == "" {
+        c.JSON(400, gin.H{
+            "error": "lat and lng are required",
+        })
+        return
+    }
+
+    radius := 10.0 // KM
 
     var rooms []models.Room
-    if err := db.DB.Find(&rooms).Error; err != nil {
-        c.JSON(400, gin.H{"error": "Tidak ada room"})
+
+    query := `
+        SELECT rooms.* FROM rooms
+        JOIN map_locs ON map_locs.id = rooms.map_loc_id
+        WHERE map_locs.is_active = true
+        AND (
+            6371 * acos(
+                cos(radians(?)) * cos(radians(map_locs.latitude)) *
+                cos(radians(map_locs.longitude) - radians(?)) +
+                sin(radians(?)) * sin(radians(map_locs.latitude))
+            )
+        ) <= ?
+    `
+
+    if err := db.DB.
+        Raw(query, lat, lng, lat, radius).
+        Scan(&rooms).Error; err != nil {
+
+        c.JSON(500, gin.H{"error": "Failed to fetch rooms"})
+        return
+    }
+
+    for i := range rooms {
+        db.DB.Preload("MapLoc").First(&rooms[i], rooms[i].ID)
+    }
+
+    c.JSON(200, gin.H{
+        "message": "Rooms found nearby",
+        "radius_km": radius,
+        "total": len(rooms),
+        "rooms": rooms,
+    })
+}
+
+func DetailRoom(c *gin.Context) {
+    roomID := c.Param("id")
+    var room models.Room
+
+    if err := db.DB.
+        Preload("MapLoc").
+        First(&room, roomID).Error; err != nil {
+
+        c.JSON(404, gin.H{"error": "Room not found"})
         return
     }
 
     c.JSON(http.StatusOK, gin.H{
-		"message": "Data room ditemukan",
-		"users":   rooms,
+        "message": "Data room found",
+        "room":    room,
+    })
+}
+
+func UpdateRoom(c *gin.Context){
+    var input map[string]interface{}
+    roomID := c.Param("id")
+
+    if err := c.ShouldBindJSON(&input); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+        return
+    }
+
+    var room models.Room
+    if err := db.DB.First(&room, roomID).Error; err != nil {
+        c.JSON(400, gin.H{"error": "There are no rooms"})
+        return
+    }
+
+    // room.Name              = input.Name
+    // room.Description       = input.Description
+    // room.StartTime         = input.StartTime
+    // room.EndTime           = input.EndTime
+    // room.Duration          = input.Duration
+    // room.Location          = input.Location
+    // room.Capacity          = input.Capacity
+    // room.FeePerPerson      = input.FeePerPerson 
+    // room.Gender            = input.Gender
+    // room.AgeGroup          = input.AgeGroup
+    // room.IsRegular         = input.IsRegular
+    // room.AutoApprove       = input.AutoApprove
+    // room.SendNotification  = input.SendNotification
+
+    // if err := db.DB.Save(&room).Error; err != nil {
+    //     c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update room"})
+    //     return
+    // }
+
+    if mapLocID, ok := input["map_loc_id"]; ok {
+        var mapLoc models.MapLoc
+
+        if err := db.DB.
+            Where("id = ? AND is_active = true", mapLocID).
+            First(&mapLoc).Error; err != nil {
+
+            c.JSON(400, gin.H{
+                "error": "Location not found or inactive",
+            })
+            return
+        }
+    }
+
+    if err := db.DB.Model(&room).Updates(input).Error; err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update room"})
+        return
+    }
+
+    db.DB.Preload("MapLoc").First(&room, roomID)
+    c.JSON(http.StatusOK, gin.H{
+		"message": "Update room successfully",
+		"Room":   room,
 	})
 }

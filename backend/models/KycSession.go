@@ -9,4 +9,5 @@ type KycSession struct {
     UserID    uint      `gorm:"not null"`
     DataJSON  datatypes.JSON `json:"data_json"`
     Used      bool      `gorm:"default:false"`
+    Status    string    `gorm:"default:'pending'"`
 }

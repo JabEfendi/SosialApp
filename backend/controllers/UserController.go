@@ -15,6 +15,8 @@ import (
     "os"
     "path/filepath"
 
+    "github.com/google/uuid"
+    "github.com/spf13/cast"
 	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -41,7 +43,7 @@ func RegisterRequest(c *gin.Context) {
 
     var existing models.User
     if err := db.DB.Where("email = ?", input.Email).First(&existing).Error; err == nil {
-        c.JSON(400, gin.H{"error": "Email sudah digunakan"})
+        c.JSON(400, gin.H{"error": "Email is already in use"})
         return
     }
 
@@ -77,7 +79,7 @@ func RegisterRequest(c *gin.Context) {
     fmt.Println("OTP DIKIRIM:", otp)
 
     c.JSON(200, gin.H{
-        "message": "OTP telah dikirim ke email",
+        "message": "OTP has been sent to email",
         "email":   input.Email,
     })
 }
@@ -96,18 +98,18 @@ func RegisterVerify(c *gin.Context) {
     var otpData models.OTPVerification
     if err := db.DB.Where("email = ? AND otp = ?", input.Email, input.OTP).
         First(&otpData).Error; err != nil {
-        c.JSON(400, gin.H{"error": "OTP salah"})
+        c.JSON(400, gin.H{"error": "Wrong OTP"})
         return
     }
 
     if time.Now().After(otpData.ExpiredAt) {
-        c.JSON(400, gin.H{"error": "OTP expired, silakan resend"})
+        c.JSON(400, gin.H{"error": "OTP expired, please resend"})
         return
     }
 
     var temp models.TempUser
     if err := db.DB.Where("email = ?", input.Email).First(&temp).Error; err != nil {
-        c.JSON(400, gin.H{"error": "Data tidak ditemukan"})
+        c.JSON(400, gin.H{"error": "Data not found"})
         return
     }
     user := models.User{
@@ -128,36 +130,40 @@ func RegisterVerify(c *gin.Context) {
     db.DB.Delete(&temp)
     db.DB.Delete(&otpData)
 
+    emailBody := fmt.Sprintf(`
+        <h2>Congratulations %s 🎉</h2>
+        <p>Your account has been successfully created on <b>%s</b>.</p>
+    `, user.Name, time.Now().Format("02 Jan 2006"))
 
-		// Ambil token FCM user
-		var token models.UserFCMToken
-		db.DB.Where("user_id = ?", user.ID).Last(&token)
+    err := helpers.SendEmail(user.Email, "🎉 Account Created Successfully", emailBody)
+    if err != nil {
+        fmt.Println("Email send error:", err)
+    }
 
-		// Buat greeting message
-		message := fmt.Sprintf("Halo %s! Akun kamu berhasil dibuat pada %s",
-				user.Name,
-				time.Now().Format("02 Jan 2006"),
-		)
+    var token models.UserFCMToken
+    db.DB.Where("user_id = ?", user.ID).Last(&token)
 
-		// Simpan ke tabel notification
-		notif := models.Notification{
-				UserID: user.ID,
-				Title:  "Akun Berhasil Dibuat 🎉",
-				Message: message,
-		}
-		db.DB.Create(&notif)
+    message := fmt.Sprintf("Halo %s! your account has been successfully created on %s",
+            user.Name,
+            time.Now().Format("02 Jan 2006"),
+    )
 
-		// Kirim push notif (jika ada token)
-		if token.FCMToken != "" {
-				helpers.SendFCMToken(token.FCMToken,
-						"Akun Berhasil Dibuat 🎉",
-						message,
-				)
-		}
+    notif := models.Notification{
+            UserID: user.ID,
+            Title:  "Account Created Successfully 🎉",
+            Message: message,
+    }
+    db.DB.Create(&notif)
 
+    if token.FCMToken != "" {
+            helpers.SendFCMToken(token.FCMToken,
+                    "Account Created Successfully 🎉",
+                    message,
+            )
+    }
 
     c.JSON(200, gin.H{
-        "message": "Akun berhasil dibuat",
+        "message": "Account Created Successfully",
         "user":    user,
     })
 }
@@ -184,7 +190,7 @@ func RegisterResend(c *gin.Context) {
 
     fmt.Println("OTP RESEND:", otp)
 
-    c.JSON(200, gin.H{"message": "OTP baru dikirim"})
+    c.JSON(200, gin.H{"message": "New OTP sent"})
 }
 
 
@@ -206,7 +212,7 @@ func SendTestNotification(c *gin.Context) {
     if err := db.DB.Where("user_id = ?", input.UserID).
         Order("id desc").
         First(&token).Error; err != nil {
-        c.JSON(400, gin.H{"error": "FCM token user tidak ditemukan"})
+        c.JSON(400, gin.H{"error": "FCM token user not found"})
         return
     }
 
@@ -222,7 +228,7 @@ func SendTestNotification(c *gin.Context) {
     }
 
     c.JSON(200, gin.H{
-        "message": "Notifikasi terkirim",
+        "message": "Notification sent",
         "sent_to": token.FCMToken,
     })
 }
@@ -332,29 +338,29 @@ func ChangePass(c *gin.Context) {
 
     var user models.User
     if err := db.DB.Where("id = ?", userID).First(&user).Error; err != nil {
-        c.JSON(400, gin.H{"error": "User tidak ditemukan"})
+        c.JSON(400, gin.H{"error": "User not found"})
         return
     }
 
     if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(input.OldPassword)); err != nil {
-        c.JSON(400, gin.H{"error": "Password lama salah"})
+        c.JSON(400, gin.H{"error": "Old password wrong"})
         return
     }
 
     hashedPassword, err := bcrypt.GenerateFromPassword([]byte(input.NewPassword), bcrypt.DefaultCost)
     if err != nil {
-        c.JSON(500, gin.H{"error": "Gagal meng-hash password baru"})
+        c.JSON(500, gin.H{"error": "Failed to hash new password"})
         return
     }
 
     user.Password = string(hashedPassword)
     if err := db.DB.Save(&user).Error; err != nil {
-        c.JSON(500, gin.H{"error": "Gagal update password"})
+        c.JSON(500, gin.H{"error": "Failed to update password"})
         return
     }
 
     c.JSON(200, gin.H{
-        "message": "Password berhasil diperbarui!",
+        "message": "Password updated successfully!",
     })
 }
 
@@ -393,7 +399,6 @@ func GoogleLogin(c *gin.Context) {
 
 	tokenURL := "https://oauth2.googleapis.com/token"
 
-	// WAJIB pakai form-urlencoded
 	data := url.Values{}
 	data.Set("code", input.Code)
 	data.Set("client_id", "34179357585-ojeb7n28gu1doapa3drn6db8hsjdhfpk.apps.googleusercontent.com")
@@ -417,7 +422,6 @@ func GoogleLogin(c *gin.Context) {
 	var tokenResponse map[string]interface{}
 	json.Unmarshal(body, &tokenResponse)
 
-	// DEBUG RESPONSE GOOGLE
 	fmt.Println("Google Token Response: ", string(body))
 
 	accessToken, ok := tokenResponse["access_token"].(string)
@@ -429,7 +433,6 @@ func GoogleLogin(c *gin.Context) {
 		return
 	}
 
-	// GET USER INFO
 	userInfoURL := "https://www.googleapis.com/oauth2/v2/userinfo?access_token=" + accessToken
 	res2, err := http.Get(userInfoURL)
 	if err != nil {
@@ -442,13 +445,11 @@ func GoogleLogin(c *gin.Context) {
 	var googleUser map[string]interface{}
 	json.Unmarshal(body2, &googleUser)
 
-	// SAFE CASTING
 	email, _ := googleUser["email"].(string)
 	name, _ := googleUser["name"].(string)
 	avatar, _ := googleUser["picture"].(string)
 	providerID, _ := googleUser["id"].(string)
 
-	// CEK USER
 	var user models.User
 	db.DB.Where("email = ?", email).First(&user)
 
@@ -466,7 +467,6 @@ func GoogleLogin(c *gin.Context) {
 		db.DB.Create(&user)
 	}
 
-	// LOG
 	db.DB.Exec(`
 		INSERT INTO login_logs (user_id, device, ip_address, location, logged_in_at)
 		VALUES (?, ?, ?, ?, ?)
@@ -501,15 +501,11 @@ func FacebookLogin(c *gin.Context) {
 	defer res.Body.Close()
 
 	body, _ := io.ReadAll(res.Body)
-
-	// DEBUG
 	fmt.Println("Facebook User Response: ", string(body))
 
-	// Parse hasil JSON
 	var fbUser map[string]interface{}
 	json.Unmarshal(body, &fbUser)
 
-	// Jika token salah / expired
 	if fbUser["error"] != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error":          "Facebook token invalid",
@@ -518,12 +514,10 @@ func FacebookLogin(c *gin.Context) {
 		return
 	}
 
-	// SAFE CAST
 	email, _ := fbUser["email"].(string)
 	name, _ := fbUser["name"].(string)
 	providerID, _ := fbUser["id"].(string)
 
-	// Picture
 	avatar := ""
 	if picture, ok := fbUser["picture"].(map[string]interface{}); ok {
 		if data, ok := picture["data"].(map[string]interface{}); ok {
@@ -531,12 +525,10 @@ func FacebookLogin(c *gin.Context) {
 		}
 	}
 
-	// CEK USER EXIST
 	var user models.User
 	db.DB.Where("email = ?", email).First(&user)
 
 	if user.ID == 0 {
-		// AUTO REGISTER
 		user = models.User{
 			Name:       name,
 			Email:      email,
@@ -544,12 +536,11 @@ func FacebookLogin(c *gin.Context) {
 			Provider:   "facebook",
 			ProviderID: providerID,
 			Avatar:     avatar,
-			Birthdate:  "0001-01-01", // biar konsisten
+			Birthdate:  "0001-01-01",
 		}
 		db.DB.Create(&user)
 	}
 
-	// SIMPAN LOG LOGIN
 	db.DB.Exec(`
 		INSERT INTO login_logs (user_id, device, ip_address, location, logged_in_at)
 		VALUES (?, ?, ?, ?, ?)
@@ -619,6 +610,51 @@ func UpdateUser(c *gin.Context) {
 
 // _________________________________________________________________________________________________
 // upload photo
+// func UploadAvatar(c *gin.Context) {
+//     userID := c.PostForm("user_id")
+//     if userID == "" {
+//         c.JSON(400, gin.H{"error": "user_id is required"})
+//         return
+//     }
+
+//     file, err := c.FormFile("photo")
+//     if err != nil {
+//         c.JSON(400, gin.H{"error": "photo file is required"})
+//         return
+//     }
+
+//     if !strings.Contains(file.Header.Get("Content-Type"), "image") {
+//         c.JSON(400, gin.H{"error": "Only image files are allowed"})
+//         return
+//     }
+
+//     filename := fmt.Sprintf("%s-%d%s",
+//         userID,
+//         time.Now().Unix(),
+//         filepath.Ext(file.Filename),
+//     )
+
+//     uploadPath := "uploads/avatars"
+//     os.MkdirAll(uploadPath, os.ModePerm)
+
+//     fullPath := uploadPath + "/" + filename
+//     baseURL := "https://testtestdomaingweh.com/"
+//     avatarURL := baseURL + fullPath
+
+//     if err := c.SaveUploadedFile(file, fullPath); err != nil {
+//         c.JSON(500, gin.H{"error": "Failed to save file"})
+//         return
+//     }
+
+//     db.DB.Model(&models.User{}).
+//         Where("id = ?", userID).
+//         Update("avatar", avatarURL)
+
+//     c.JSON(200, gin.H{
+//         "message": "Profile photo updated",
+//         "avatar_url": avatarURL,
+//     })
+// }
 func UploadAvatar(c *gin.Context) {
     userID := c.PostForm("user_id")
     if userID == "" {
@@ -626,43 +662,148 @@ func UploadAvatar(c *gin.Context) {
         return
     }
 
-    file, err := c.FormFile("photo")
+    form, err := c.MultipartForm()
     if err != nil {
-        c.JSON(400, gin.H{"error": "photo file is required"})
+        c.JSON(400, gin.H{"error": "Failed to read photos"})
         return
     }
 
-    if !strings.Contains(file.Header.Get("Content-Type"), "image") {
-        c.JSON(400, gin.H{"error": "Only image files are allowed"})
+    files := form.File["photos"]
+    if len(files) == 0 {
+        c.JSON(400, gin.H{"error": "No photos uploaded"})
         return
     }
 
-    filename := fmt.Sprintf("%s-%d%s",
-        userID,
-        time.Now().Unix(),
-        filepath.Ext(file.Filename),
-    )
-
-    uploadPath := "uploads/avatars"
+    uploadPath := "uploads/users"
+    baseURL := "https://testtestdomaingweh.com/"
     os.MkdirAll(uploadPath, os.ModePerm)
 
-    fullPath := uploadPath + "/" + filename
-    baseURL := "https://testtestdomaingweh.com/"
-    avatarURL := baseURL + fullPath
+    uploadedURLs := []string{}
+    var user models.User
 
-    if err := c.SaveUploadedFile(file, fullPath); err != nil {
-        c.JSON(500, gin.H{"error": "Failed to save file"})
+    if err := db.DB.First(&user, userID).Error; err != nil {
+        c.JSON(404, gin.H{"error": "User not found"})
+        return
+    }
+
+    for _, file := range files {
+
+        if !strings.Contains(file.Header.Get("Content-Type"), "image") {
+            continue
+        }
+
+        filename := fmt.Sprintf("%s-%d-%s%s",
+            userID,
+            time.Now().Unix(),
+            uuid.New().String(),
+            filepath.Ext(file.Filename),
+        )
+
+        fullPath := uploadPath + "/" + filename
+        photoURL := baseURL + fullPath
+
+        if err := c.SaveUploadedFile(file, fullPath); err != nil {
+            continue
+        }
+
+        db.DB.Create(&models.UserPhoto{
+            UserID: cast.ToUint(userID),
+            Photo:  photoURL,
+        })
+
+        uploadedURLs = append(uploadedURLs, photoURL)
+
+        if user.Avatar == "" {
+            db.DB.Model(&user).Update("avatar", photoURL)
+        }
+    }
+
+    c.JSON(200, gin.H{
+        "message": "Photos uploaded successfully",
+        "photos":  uploadedURLs,
+        "avatar":  user.Avatar,
+    })
+}
+
+func GetUserPhotos(c *gin.Context) {
+    userID := c.Param("id")
+
+    var photos []models.UserPhoto
+    db.DB.Where("user_id = ?", userID).Find(&photos)
+
+    c.JSON(200, gin.H{
+        "photos": photos,
+    })
+}
+
+func SetProfilePhoto(c *gin.Context) {
+    userID := c.PostForm("user_id")
+    photoID := c.PostForm("photo_id")
+
+    if userID == "" || photoID == "" {
+        c.JSON(400, gin.H{"error": "user_id & photo_id required"})
+        return
+    }
+
+    var photo models.UserPhoto
+    if err := db.DB.Where("id = ? AND user_id = ?", photoID, userID).First(&photo).Error; err != nil {
+        c.JSON(404, gin.H{"error": "Photo not found"})
         return
     }
 
     db.DB.Model(&models.User{}).
         Where("id = ?", userID).
-        Update("avatar", avatarURL)
+        Update("avatar", photo.Photo)
 
     c.JSON(200, gin.H{
-        "message": "Profile photo updated",
-        "avatar_url": avatarURL,
+        "message": "Avatar updated",
+        "avatar":  photo.Photo,
     })
+}
+
+func DeleteUserPhoto(c *gin.Context) {
+    photoID := c.Param("id")
+
+    var photo models.UserPhoto
+    if err := db.DB.First(&photo, photoID).Error; err != nil {
+        c.JSON(404, gin.H{"error": "Photo not found"})
+        return
+    }
+
+    var user models.User
+    db.DB.First(&user, photo.UserID)
+
+    parts := strings.Split(photo.Photo, "/")
+    filename := parts[len(parts)-1]
+    os.Remove("uploads/users/" + filename)
+
+    db.DB.Delete(&photo)
+
+    if user.Avatar == photo.Photo {
+        defaultPhoto := "https://testtestdomaingweh.com/default-avatar.png"
+        db.DB.Model(&user).Update("avatar", defaultPhoto)
+    }
+
+    c.JSON(200, gin.H{
+        "message": "Photo deleted",
+    })
+}
+
+// _________________________________________________________________________________________________
+// user detail
+func GetUserDetail(c *gin.Context) {
+    userID := c.Param("id")
+	var users models.User
+
+	if err := db.DB.Where(&userID).Find(&users).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "User data found",
+		"users":   users,
+	})
 }
 
 
@@ -677,7 +818,7 @@ func Test(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Data user ditemukan",
+		"message": "User data found",
 		"users":   users,
 	})
 }
@@ -692,7 +833,7 @@ func Ceklog(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Data user ditemukan",
+		"message": "User data found",
 		"users":   login_logs,
 	})
 }

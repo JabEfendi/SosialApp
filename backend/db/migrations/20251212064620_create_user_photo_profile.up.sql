@@ -1,0 +1,6 @@
+CREATE TABLE IF NOT EXISTS user_photos (
+    id SERIAL PRIMARY KEY,
+    user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    photo TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT NOW()
+);

@@ -9,8 +9,9 @@ type Room struct {
     Description      string
     StartTime        time.Time
     EndTime          time.Time
-    Duration         string
-    Location         string
+    Duration         time.Duration
+    MapLocID         *uint      `json:"map_loc_id"`
+    MapLoc           MapLoc    `gorm:"foreignKey:MapLocID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL" json:"map_loc"`
     Capacity         int
     FeePerPerson     float64
     Gender           string

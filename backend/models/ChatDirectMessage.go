@@ -8,6 +8,6 @@ type ChatDirectMessage struct {
     SenderID   uint      `json:"sender_id"`
     ReceiverID uint      `json:"receiver_id"`
     Message    string    `json:"message"`
-    Status     string    `json:"status"
+    Status     string    `json:"status"`
     CreatedAt  time.Time `json:"created_at"`
 }
