@@ -1,0 +1,12 @@
+CREATE TABLE IF NOT EXISTS referral_rewards (
+    id SERIAL PRIMARY KEY,
+
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    referral_id INTEGER NOT NULL REFERENCES referrals(id) ON DELETE CASCADE,
+
+    amount INTEGER NOT NULL,
+    reward_type VARCHAR(50),
+    note TEXT,
+
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);

@@ -14,6 +14,9 @@ CREATE TABLE IF NOT EXISTS users (
   provider_id VARCHAR(255),
   avatar TEXT,
   FCMToken VARCHAR,
+  coin_balance BIGINT NOT NULL DEFAULT 0,
+  referral_code VARCHAR(20) UNIQUE,
+  referred_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );

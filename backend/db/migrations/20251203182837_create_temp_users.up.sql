@@ -10,5 +10,6 @@ CREATE TABLE IF NOT EXISTS temp_users (
     bio TEXT,
     country VARCHAR(100),
     address TEXT,
+    referral_code VARCHAR(20),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

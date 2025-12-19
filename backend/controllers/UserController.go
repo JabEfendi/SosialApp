@@ -32,6 +32,7 @@ type RegisterInput struct {
     Bio       string `json:"bio"`
     Country   string `json:"country"`
     Address   string `json:"address"`
+    ReferralCode string `json:"referral_code"`
 }
 
 func RegisterRequest(c *gin.Context) {
@@ -52,17 +53,19 @@ func RegisterRequest(c *gin.Context) {
 
     hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(input.Password), bcrypt.DefaultCost)
 
+    var emptyDate *time.Time = nil
     temp := models.TempUser{
         Email:    input.Email,
         Name:     input.Name,
         Username: input.Username,
         Password: string(hashedPassword),
         Gender:   input.Gender,
-		Birthdate: "0001-01-01",
+        Birthdate: emptyDate,
         Phone:    input.Phone,
         Bio:      input.Bio,
         Country:  input.Country,
         Address:  input.Address,
+        ReferralCode: strings.TrimSpace(input.ReferralCode),
     }
 
     db.DB.Create(&temp)
@@ -112,6 +115,8 @@ func RegisterVerify(c *gin.Context) {
         c.JSON(400, gin.H{"error": "Data not found"})
         return
     }
+
+    referralCode := helpers.GenerateReferralCode(temp.Name)
     user := models.User{
         Name:     temp.Name,
         Username: temp.Username,
@@ -124,9 +129,31 @@ func RegisterVerify(c *gin.Context) {
         Country:  temp.Country,
         Address:  temp.Address,
         Provider: "local",
+        ReferralCode: referralCode,
     }
 
     db.DB.Create(&user)
+
+    if temp.ReferralCode != "" {
+        var referrer models.User
+
+        err := db.DB.
+            Where("referral_code = ?", temp.ReferralCode).
+            First(&referrer).Error
+
+        if err == nil && referrer.ID != user.ID {
+            user.ReferredBy = &referrer.ID
+            db.DB.Save(&user)
+
+            referral := models.Referral{
+                ReferrerID: referrer.ID,
+                ReferredID: user.ID,
+                Status:     "pending",
+            }
+            db.DB.Create(&referral)
+        }
+    }
+
     db.DB.Delete(&temp)
     db.DB.Delete(&otpData)
 
@@ -459,7 +486,7 @@ func GoogleLogin(c *gin.Context) {
 			Email:      email,
 			Password:   "",
 			Provider:   "google",
-			Birthdate:  "0001-01-01",
+			Birthdate:  nil,
 			ProviderID: providerID,
 			Avatar:     avatar,
 		}
@@ -536,7 +563,7 @@ func FacebookLogin(c *gin.Context) {
 			Provider:   "facebook",
 			ProviderID: providerID,
 			Avatar:     avatar,
-			Birthdate:  "0001-01-01",
+			Birthdate:  nil,
 		}
 		db.DB.Create(&user)
 	}
@@ -585,7 +612,17 @@ func UpdateUser(c *gin.Context) {
     user.Name = input.Name
     user.Username = input.Username
     user.Gender = input.Gender
-    user.Birthdate = input.Birthdate
+    // user.Birthdate = input.Birthdate
+    if input.Birthdate != "" {
+        parsedDate, err := time.Parse("2006-01-02", input.Birthdate)
+        if err != nil {
+            c.JSON(400, gin.H{"error": "Invalid birthdate format (YYYY-MM-DD)"})
+            return
+        }
+        user.Birthdate = &parsedDate
+    } else {
+        user.Birthdate = nil
+    }
     user.Phone = input.Phone
     user.Bio = input.Bio
     user.Country = input.Country
@@ -805,6 +842,137 @@ func GetUserDetail(c *gin.Context) {
 		"users":   users,
 	})
 }
+
+
+// _________________________________________________________________________________________________
+// forgot password
+func ForgotPasswordRequest(c *gin.Context) {
+    var input struct {
+        Email string `json:"email" binding:"required,email"`
+    }
+
+    if err := c.ShouldBindJSON(&input); err != nil {
+        c.JSON(400, gin.H{"error": err.Error()})
+        return
+    }
+
+    var user models.User
+    if err := db.DB.Where("email = ?", input.Email).First(&user).Error; err != nil {
+        c.JSON(404, gin.H{"error": "Email not registered"})
+        return
+    }
+
+    // hapus OTP lama
+    db.DB.Where("email = ?", input.Email).Delete(&models.OTPVerification{})
+
+    otp := helpers.GenerateOTP()
+    expired := time.Now().Add(10 * time.Minute)
+
+    db.DB.Create(&models.OTPVerification{
+        Email:     input.Email,
+        OTP:       otp,
+        ExpiredAt: expired,
+    })
+
+    emailBody := fmt.Sprintf(`
+        <h3>Reset Password</h3>
+        <p>OTP kamu adalah:</p>
+        <h2>%s</h2>
+        <p>Berlaku selama 10 menit</p>
+    `, otp)
+
+    helpers.SendEmail(input.Email, "Reset Password OTP", emailBody)
+
+    fmt.Println("FORGOT OTP:", otp)
+
+    c.JSON(200, gin.H{
+        "message": "OTP sent to email",
+    })
+}
+
+func ForgotPasswordVerify(c *gin.Context) {
+    var input struct {
+        Email string `json:"email" binding:"required,email"`
+        OTP   string `json:"otp" binding:"required"`
+    }
+
+    if err := c.ShouldBindJSON(&input); err != nil {
+        c.JSON(400, gin.H{"error": err.Error()})
+        return
+    }
+
+    var otpData models.OTPVerification
+    if err := db.DB.
+        Where("email = ? AND otp = ?", input.Email, input.OTP).
+        First(&otpData).Error; err != nil {
+        c.JSON(400, gin.H{"error": "Invalid OTP"})
+        return
+    }
+
+    if time.Now().After(otpData.ExpiredAt) {
+        c.JSON(400, gin.H{"error": "OTP expired"})
+        return
+    }
+
+    c.JSON(200, gin.H{
+        "message": "OTP verified",
+    })
+}
+
+func ResetPassword(c *gin.Context) {
+    var input struct {
+        Email       string `json:"email" binding:"required,email"`
+        OTP         string `json:"otp" binding:"required"`
+        NewPassword string `json:"new_password" binding:"required,min=6"`
+    }
+
+    if err := c.ShouldBindJSON(&input); err != nil {
+        c.JSON(400, gin.H{"error": err.Error()})
+        return
+    }
+
+    var otpData models.OTPVerification
+    if err := db.DB.
+        Where("email = ? AND otp = ?", input.Email, input.OTP).
+        First(&otpData).Error; err != nil {
+        c.JSON(400, gin.H{"error": "Invalid OTP"})
+        return
+    }
+
+    if time.Now().After(otpData.ExpiredAt) {
+        c.JSON(400, gin.H{"error": "OTP expired"})
+        return
+    }
+
+    var user models.User
+    if err := db.DB.Where("email = ?", input.Email).First(&user).Error; err != nil {
+        c.JSON(404, gin.H{"error": "User not found"})
+        return
+    }
+
+    hashed, err := bcrypt.GenerateFromPassword([]byte(input.NewPassword), bcrypt.DefaultCost)
+    if err != nil {
+        c.JSON(500, gin.H{"error": "Failed to hash password"})
+        return
+    }
+
+    user.Password = string(hashed)
+    db.DB.Save(&user)
+
+    // hapus OTP setelah sukses
+    db.DB.Delete(&otpData)
+
+    helpers.SendEmail(
+        user.Email,
+        "Password Updated Successfully",
+        "<p>Password kamu berhasil diubah</p>",
+    )
+
+    c.JSON(200, gin.H{
+        "message": "Password reset successfully",
+    })
+}
+
 
 
 // _________________________________________________________________________________________________

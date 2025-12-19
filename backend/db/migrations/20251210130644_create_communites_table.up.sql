@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS communities (
     chat_notifications BOOLEAN DEFAULT true,
     invite_code VARCHAR(10) UNIQUE NOT NULL,
     cover_image TEXT,
+    Avatar     TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );

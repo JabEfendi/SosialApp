@@ -17,4 +17,4 @@ FOREIGN KEY (map_loc_id)
 REFERENCES map_locs(id)
 ON DELETE SET NULL;
 
-CREATE INDEX idx_map_locs_lat_lng ON map_locs (latitude, longitude);
+CREATE INDEX IF NOT EXISTS idx_map_locs_lat_lng ON map_locs (latitude, longitude);

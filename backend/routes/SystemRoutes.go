@@ -23,6 +23,9 @@ func SystemRoutes(r *gin.Engine) {
         auth.PUT("/changepassword/:id", controllers.ChangePass)
         auth.POST("/google", controllers.GoogleLogin)
         auth.POST("/facebook", controllers.FacebookLogin)
+        auth.POST("/forgot-password", controllers.ForgotPasswordRequest)
+        auth.POST("/forgot-password/verify", controllers.ForgotPasswordVerify)
+        auth.POST("/reset-password", controllers.ResetPassword)
         
     user := r.Group("/user")
         user.GET("/:id", controllers.GetUserDetail)
@@ -55,6 +58,8 @@ func SystemRoutes(r *gin.Engine) {
         //note remember ini untuk update status pesan anjay tapi ini dari receivernya
         directchat.PUT("/:threadID/delivered/:userID", controllers.MarkDirectDelivered)
 
+    coins := r.Group("/coins")
+
     community := r.Group("/community")
         community.POST("/", controllers.CreateCommunity)
         community.POST("/join", controllers.JoinCommunity)
@@ -62,6 +67,10 @@ func SystemRoutes(r *gin.Engine) {
         community.GET("/:id/members", controllers.GetCommunityMembers)
         community.POST("/chat/send", controllers.SendCommunityMessage)
         community.GET("/chat/:communityID", controllers.GetCommunityMessages)
+        community.POST("/photos/upload", controllers.UploadCommunityAvatar)
+        community.GET("/:id/photos", controllers.GetPhotosCommunity)
+        community.POST("/photos/set-avatar", controllers.SetProfilePhotoCommunity)
+        community.DELETE("/photos/:id", controllers.DeletePhotoCommunity)
 
 }
 

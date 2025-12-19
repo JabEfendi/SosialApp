@@ -6,7 +6,13 @@ import (
 	"math/rand"
 	"net/http"
 	"time"
+	"fmt"
+	"os"
+	"strings"
+	"path/filepath"
 
+	"github.com/google/uuid"
+	"github.com/spf13/cast"
 	"github.com/gin-gonic/gin"
 )
 
@@ -157,4 +163,139 @@ func GetCommunityMembers(c *gin.Context) {
 	c.JSON(200, gin.H{
 		"members": members,
 	})
+}
+
+func UploadCommunityAvatar(c *gin.Context) {
+    communityID := c.PostForm("community_id")
+    if communityID == "" {
+        c.JSON(400, gin.H{"error": "community_id is required"})
+        return
+    }
+
+    form, err := c.MultipartForm()
+    if err != nil {
+        c.JSON(400, gin.H{"error": "Failed to read photos"})
+        return
+    }
+
+    files := form.File["photos"]
+    if len(files) == 0 {
+        c.JSON(400, gin.H{"error": "No photos uploaded"})
+        return
+    }
+
+    uploadPath := "uploads/communities"
+    baseURL := "https://testtestdomaingweh.com/"
+    os.MkdirAll(uploadPath, os.ModePerm)
+
+    uploadedURLs := []string{}
+    var community models.Community
+
+    if err := db.DB.First(&community, communityID).Error; err != nil {
+        c.JSON(404, gin.H{"error": "Community not found"})
+        return
+    }
+
+    for _, file := range files {
+
+        if !strings.Contains(file.Header.Get("Content-Type"), "image") {
+            continue
+        }
+
+        filename := fmt.Sprintf("%s-%d-%s%s",
+            communityID,
+            time.Now().Unix(),
+            uuid.New().String(),
+            filepath.Ext(file.Filename),
+        )
+
+        fullPath := uploadPath + "/" + filename
+        photoURL := baseURL + "/" + fullPath
+
+        if err := c.SaveUploadedFile(file, fullPath); err != nil {
+            continue
+        }
+
+        db.DB.Create(&models.CommunityPhoto{
+            CommunityID: cast.ToUint(communityID),
+            Photo:  photoURL,
+        })
+
+        uploadedURLs = append(uploadedURLs, photoURL)
+
+        if community.Avatar == "" {
+						community.Avatar = photoURL
+						db.DB.Model(&community).Update("avatar", photoURL)
+				}
+    }
+
+    c.JSON(200, gin.H{
+        "message": "Photos uploaded successfully",
+        "photos":  uploadedURLs,
+        "avatar":  community.Avatar,
+    })
+}
+
+func GetPhotosCommunity(c *gin.Context) {
+    communityID := c.Param("id")
+
+    var photos []models.CommunityPhoto
+    db.DB.Where("community_id = ?", communityID).Find(&photos)
+
+    c.JSON(200, gin.H{
+        "photos": photos,
+    })
+}
+
+func SetProfilePhotoCommunity(c *gin.Context) {
+    communityID := c.PostForm("community_id")
+    photoID := c.PostForm("photo_id")
+
+    if communityID == "" || photoID == "" {
+        c.JSON(400, gin.H{"error": "community_id & photo_id required"})
+        return
+    }
+
+    var photo models.CommunityPhoto
+    if err := db.DB.Where("id = ? AND community_id = ?", photoID, communityID).First(&photo).Error; err != nil {
+        c.JSON(404, gin.H{"error": "Photo not found"})
+        return
+    }
+
+    db.DB.Model(&models.Community{}).
+        Where("id = ?", communityID).
+        Update("avatar", photo.Photo)
+
+    c.JSON(200, gin.H{
+        "message": "Avatar updated",
+        "avatar":  photo.Photo,
+    })
+}
+
+func DeletePhotoCommunity(c *gin.Context) {
+    photoID := c.Param("id")
+
+    var photo models.CommunityPhoto
+    if err := db.DB.First(&photo, photoID).Error; err != nil {
+        c.JSON(404, gin.H{"error": "Photo not found"})
+        return
+    }
+
+    var community models.Community
+    db.DB.First(&community, photo.CommunityID)
+
+    parts := strings.Split(photo.Photo, "/")
+    filename := parts[len(parts)-1]
+    os.Remove("uploads/communities/" + filename)
+
+    db.DB.Delete(&photo)
+
+    if community.Avatar == photo.Photo {
+        defaultPhoto := "https://testtestdomaingweh.com/default-avatar.png"
+        db.DB.Model(&community).Update("avatar", defaultPhoto)
+    }
+
+    c.JSON(200, gin.H{
+        "message": "Photo deleted",
+    })
 }
