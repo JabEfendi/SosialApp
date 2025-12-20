@@ -43,6 +43,7 @@ func SystemRoutes(r *gin.Engine) {
     room := r.Group("/room")
         room.POST("/", controllers.CreateRoom)
         room.POST("/join", controllers.JoinRoom)
+        room.POST("/paidroom/join", controllers.JoinPaidRoom)
         room.GET("/:id/participants", controllers.GetRoomParticipants)
         room.GET("/:id", controllers.DetailRoom)
         room.GET("/list", controllers.ListRoom)

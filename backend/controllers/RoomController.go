@@ -78,6 +78,7 @@ func CreateRoom(c *gin.Context) {
         Duration:         time.Duration(input.Duration) * time.Minute,
         Capacity:         input.Capacity,
         FeePerPerson:     input.FeePerPerson,
+        IsPaid:           input.FeePerPerson > 0,
         Gender:           input.Gender,
         AgeGroup:         input.AgeGroup,
         IsRegular:        input.IsRegular,

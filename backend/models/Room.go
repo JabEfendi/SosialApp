@@ -14,6 +14,7 @@ type Room struct {
     MapLoc           MapLoc    `gorm:"foreignKey:MapLocID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL" json:"map_loc"`
     Capacity         int
     FeePerPerson     float64
+    IsPaid           bool `json:"is_paid"`
     Gender           string
     AgeGroup         string
     IsRegular        bool
