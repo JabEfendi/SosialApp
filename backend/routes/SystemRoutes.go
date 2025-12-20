@@ -3,6 +3,7 @@ package routes
 import (
     "github.com/gin-gonic/gin"
     "backend/controllers"
+    "backend/middlewares"
 )
 
 func SystemRoutes(r *gin.Engine) {
@@ -58,7 +59,13 @@ func SystemRoutes(r *gin.Engine) {
         //note remember ini untuk update status pesan anjay tapi ini dari receivernya
         directchat.PUT("/:threadID/delivered/:userID", controllers.MarkDirectDelivered)
 
-    coins := r.Group("/coins")
+    topup := r.Group("/topup")
+        topup.Use(middlewares.AuthMiddleware())
+        {
+            topup.POST("", controllers.CreateTopUp)
+            topup.POST("/callback", controllers.PaymentCallback)
+            topup.GET("/history", controllers.GetTopUpHistory)
+        }
 
     community := r.Group("/community")
         community.POST("/", controllers.CreateCommunity)

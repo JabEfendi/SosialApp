@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS rooms (
   auto_approve BOOLEAN DEFAULT false,
   send_notification BOOLEAN DEFAULT true,
   image_url VARCHAR(255),
+  is_paid BOOLEAN DEFAULT FALSE,
   status VARCHAR(20) DEFAULT 'active', 
   created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
