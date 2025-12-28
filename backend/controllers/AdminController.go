@@ -56,6 +56,21 @@ func RegisterAdmin(c *gin.Context) {
 		Context:    c,
 	})
 
+	var superAdmins []models.Admin
+	db.DB.
+		Where("role_id = ?", 1).
+		Where("status = ?", "active").
+		Find(&superAdmins)
+
+	for _, sa := range superAdmins {
+		_ = helpers.CreateAdminNotification(helpers.AdminNotificationPayload{
+			AdminID: sa.ID,
+			Type:    "account",
+			Title:   "New Admin Registration",
+			Message: "A new admin has registered and is awaiting approval.",
+		})
+	}
+
 	c.JSON(http.StatusCreated, gin.H{
 		"message": "admin registered successfully",
 		"admin":   admin.ID,
@@ -176,7 +191,13 @@ func ApproveAdmin(c *gin.Context) {
 		After:      admin,
 		Context:    c,
 	})
-	// - notification to admin
+	
+	_ = helpers.CreateAdminNotification(helpers.AdminNotificationPayload{
+		AdminID: admin.ID,
+		Type:    "account",
+		Title:   "Account Approved",
+		Message: "Your admin account has been approved and is now active.",
+	})
 
 	c.JSON(http.StatusOK, gin.H{"message": "admin approved"})
 }
@@ -213,7 +234,12 @@ func RejectAdmin(c *gin.Context) {
 		Context:    c,
 	})
 
-	// TODO: notification ke admin
+	_ = helpers.CreateAdminNotification(helpers.AdminNotificationPayload{
+		AdminID: admin.ID,
+		Type:    "account",
+		Title:   "Account Rejected",
+		Message: "Your admin account registration has been rejected.",
+	})
 
 	c.JSON(http.StatusOK, gin.H{"message": "admin rejected"})
 }
@@ -257,6 +283,13 @@ func ResetAdminPassword(c *gin.Context) {
 		Before:     before,
 		After:      admin,
 		Context:    c,
+	})
+
+	_ = helpers.CreateAdminNotification(helpers.AdminNotificationPayload{
+		AdminID: admin.ID,
+		Type:    "security",
+		Title:   "Password Reset",
+		Message: "Your password has been reset by a superadmin.",
 	})
 
 	c.JSON(http.StatusOK, gin.H{
@@ -487,7 +520,78 @@ func ChangePackageStatus(c *gin.Context) {
 		Context:    c,
 	})
 
+	_ = helpers.CreateAdminNotification(helpers.AdminNotificationPayload{
+		AdminID: *pkg.CreatedBy,
+		Type:    "package",
+		Title:   "Package Updated",
+		Message: "A package you created has been updated or changed status.",
+	})
+
 	c.JSON(http.StatusOK, gin.H{
 		"message": "status updated",
+	})
+}
+
+
+func GetMyNotifications(c *gin.Context) {
+	adminID := c.MustGet("admin_id").(uint)
+
+	var notifs []models.AdminNotification
+
+	db.DB.
+		Where("admin_id = ?", adminID).
+		Order("id desc").
+		Find(&notifs)
+
+	c.JSON(http.StatusOK, gin.H{
+		"data": notifs,
+	})
+}
+
+func GetUnreadNotificationCount(c *gin.Context) {
+	adminID := c.MustGet("admin_id").(uint)
+
+	var count int64
+	db.DB.
+		Model(&models.AdminNotification{}).
+		Where("admin_id = ? AND is_read = false", adminID).
+		Count(&count)
+
+	c.JSON(http.StatusOK, gin.H{
+		"unread": count,
+	})
+}
+
+func MarkNotificationAsRead(c *gin.Context) {
+	adminID := c.MustGet("admin_id").(uint)
+	id := c.Param("id")
+
+	result := db.DB.
+		Model(&models.AdminNotification{}).
+		Where("id = ? AND admin_id = ?", id, adminID).
+		Update("is_read", true)
+
+	if result.RowsAffected == 0 {
+		c.JSON(http.StatusNotFound, gin.H{
+			"error": "notification not found",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "notification marked as read",
+	})
+}
+
+func MarkAllNotificationsAsRead(c *gin.Context) {
+	adminID := c.MustGet("admin_id").(uint)
+
+	db.DB.
+		Model(&models.AdminNotification{}).
+		Where("admin_id = ? AND is_read = false", adminID).
+		Update("is_read", true)
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "all notifications marked as read",
 	})
 }

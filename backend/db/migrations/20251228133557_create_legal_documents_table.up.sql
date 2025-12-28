@@ -1,0 +1,8 @@
+CREATE TABLE legal_documents (
+    id SERIAL PRIMARY KEY,
+    type VARCHAR(50) NOT NULL,
+    version VARCHAR(50) NOT NULL,
+    content TEXT NOT NULL,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);

@@ -93,7 +93,23 @@ func SystemRoutes(r *gin.Engine) {
         admin.POST("/packages", middlewares.AdminAuth(), middlewares.SuperAdminOnly(), controllers.CreatePackage)
         admin.PUT("/packages/:id", middlewares.AdminAuth(), middlewares.SuperAdminOnly(), controllers.UpdatePackage)
         admin.PATCH("/packages/:id/status", middlewares.AdminAuth(), middlewares.SuperAdminOnly(), controllers.ChangePackageStatus)
+        admin.GET("/notifications", middlewares.AdminAuth(), controllers.GetMyNotifications)
+        admin.GET("/notifications/unread-count", middlewares.AdminAuth(), controllers.GetUnreadNotificationCount)
+        admin.PATCH("/notifications/:id/read", middlewares.AdminAuth(), controllers.MarkNotificationAsRead)
+        admin.PATCH("/notifications/read-all", middlewares.AdminAuth(), controllers.MarkAllNotificationsAsRead)
+        admin.GET("/corporates", middlewares.AdminAuth(), controllers.GetCorporates)
+        admin.POST("/corporates", middlewares.AdminAuth(), middlewares.SuperAdminOnly(), controllers.CreateCorporate)
+        admin.PUT("/corporates/:id", middlewares.AdminAuth(), middlewares.SuperAdminOnly(), controllers.UpdateCorporate)
+        admin.PATCH("/corporates/:id/status", middlewares.AdminAuth(), middlewares.SuperAdminOnly(),  controllers.ChangeCorporateStatus)
 
+    sys := admin.Group("/system")
+        sys.POST("/permissions", middlewares.AdminAuth(), middlewares.RequirePermission("system.permission.create"), controllers.CreatePermission)
+        sys.PUT("/roles/:role_id/permissions", middlewares.AdminAuth(), middlewares.RequirePermission("system.role.permission.update"), controllers.UpdateRolePermissions)
+        sys.GET("/notifications", middlewares.AdminAuth(), middlewares.RequirePermission("system.notification.view"), controllers.GetNotificationSettings)
+        sys.PUT("/notifications/:id", middlewares.AdminAuth(), middlewares.RequirePermission("system.notification.update"), controllers.UpdateNotificationSetting)
+        sys.POST("/legal", middlewares.AdminAuth(), middlewares.RequirePermission("system.legal.update"), controllers.CreateLegalDocument)
+        sys.POST("/email-campaigns", middlewares.AdminAuth(), middlewares.RequirePermission("system.email.schedule"), controllers.CreateEmailCampaign)
+        sys.POST("/maintenance", middlewares.AdminAuth(), middlewares.RequirePermission("system.maintenance.create"), controllers.CreateMaintenance)
 }
 
 

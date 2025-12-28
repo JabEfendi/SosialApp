@@ -8,4 +8,6 @@ type AdminRole struct {
 	Description string    `gorm:"type:varchar(255)"`
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
+
+	Permissions []AdminPermission `gorm:"many2many:admin_role_permissions;"`
 }

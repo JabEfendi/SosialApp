@@ -24,4 +24,7 @@ type User struct {
 	Referrals []Referral `gorm:"foreignKey:ReferrerID"`
 	CreatedAt time.Time
 	UpdatedAt time.Time
+	CorporateID       *uint
+	JoinedCorporateAt *time.Time
+	Corporate *Corporate `gorm:"foreignKey:CorporateID"`
 }
