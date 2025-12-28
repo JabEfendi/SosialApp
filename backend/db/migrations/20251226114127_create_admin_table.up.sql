@@ -1,0 +1,14 @@
+CREATE TABLE admins (
+    id SERIAL PRIMARY KEY,
+    role_id INTEGER NOT NULL REFERENCES admin_roles(id) ON DELETE RESTRICT,
+    name VARCHAR(100) NOT NULL,
+    email VARCHAR(100) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL,
+    status VARCHAR(100) DEFAULT 'pending',
+    -- is_active BOOLEAN DEFAULT TRUE,
+    last_login_at TIMESTAMP NULL,
+    approved_at TIMESTAMP NULL,
+    approved_by INTEGER NULL REFERENCES admins(id),
+    created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP
+);

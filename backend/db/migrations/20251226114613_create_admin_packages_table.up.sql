@@ -1,0 +1,12 @@
+CREATE TABLE admin_packages (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    coin_amount INT NOT NULL,
+    price DECIMAL(15,2) NOT NULL,
+    bonus_coin INT DEFAULT 0,
+    status VARCHAR(100) DEFAULT 'active',
+    created_by INTEGER REFERENCES admins(id) ON DELETE CASCADE,
+    updated_by INTEGER REFERENCES admins(id) ON DELETE CASCADE,
+    created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP
+);

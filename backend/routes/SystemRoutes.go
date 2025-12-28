@@ -80,6 +80,20 @@ func SystemRoutes(r *gin.Engine) {
         community.POST("/photos/set-avatar", controllers.SetProfilePhotoCommunity)
         community.DELETE("/photos/:id", controllers.DeletePhotoCommunity)
 
+    admin := r.Group("/admin")
+        admin.POST("/register", controllers.RegisterAdmin)
+        admin.POST("/login", controllers.LoginAdmin)
+        admin.GET("/me", controllers.Me)
+        admin.POST("/approve/:id", middlewares.AdminAuth(), middlewares.SuperAdminOnly(), controllers.ApproveAdmin)
+		admin.POST("/reject/:id", middlewares.AdminAuth(), middlewares.SuperAdminOnly(), controllers.RejectAdmin)
+        // admin.PUT("/:id", middlewares.AdminAuth(), middlewares.SuperAdminOnly(), controllers.UpdateAdmin)
+        admin.PUT("/profile", middlewares.AdminAuth(), controllers.UpdateMyProfile)
+        admin.POST("/:id/reset-password", middlewares.AdminAuth(), middlewares.SuperAdminOnly(), controllers.ResetAdminPassword)
+        admin.GET("/packages", middlewares.AdminAuth(), controllers.GetPackages)
+        admin.POST("/packages", middlewares.AdminAuth(), middlewares.SuperAdminOnly(), controllers.CreatePackage)
+        admin.PUT("/packages/:id", middlewares.AdminAuth(), middlewares.SuperAdminOnly(), controllers.UpdatePackage)
+        admin.PATCH("/packages/:id/status", middlewares.AdminAuth(), middlewares.SuperAdminOnly(), controllers.ChangePackageStatus)
+
 }
 
 
