@@ -1,4 +1,4 @@
-CREATE TABLE maintenance_schedules (
+CREATE TABLE IF NOT EXISTS maintenance_schedules (
     id SERIAL PRIMARY KEY,
     title VARCHAR(150) NOT NULL,
     message TEXT,

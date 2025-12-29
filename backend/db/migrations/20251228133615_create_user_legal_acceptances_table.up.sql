@@ -1,4 +1,4 @@
-CREATE TABLE user_legal_acceptances (
+CREATE TABLE IF NOT EXISTS user_legal_acceptances (
     id SERIAL PRIMARY KEY,
     user_id INTEGER NOT NULL,
     legal_document_id INTEGER NOT NULL,

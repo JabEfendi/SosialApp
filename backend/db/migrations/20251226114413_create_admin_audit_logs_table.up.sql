@@ -1,4 +1,4 @@
-CREATE TABLE admin_audit_logs (
+CREATE TABLE IF NOT EXISTS admin_audit_logs (
     id SERIAL PRIMARY KEY,
     admin_id INTEGER NOT NULL REFERENCES admins(id) ON DELETE CASCADE,
     action VARCHAR(50) NOT NULL,

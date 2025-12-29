@@ -1,4 +1,4 @@
-CREATE TABLE notification_settings (
+CREATE TABLE IF NOT EXISTS notification_settings (
     id SERIAL PRIMARY KEY,
     channel VARCHAR(50) NOT NULL,
     is_enabled BOOLEAN DEFAULT TRUE,

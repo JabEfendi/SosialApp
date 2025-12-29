@@ -1,4 +1,4 @@
-CREATE TABLE admin_packages (
+CREATE TABLE IF NOT EXISTS admin_packages (
     id SERIAL PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
     coin_amount INT NOT NULL,

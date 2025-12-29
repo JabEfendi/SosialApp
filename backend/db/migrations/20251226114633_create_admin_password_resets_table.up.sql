@@ -1,4 +1,4 @@
-CREATE TABLE admin_password_resets (
+CREATE TABLE IF NOT EXISTS admin_password_resets (
     id SERIAL PRIMARY KEY,
     admin_id INTEGER NOT NULL REFERENCES admins(id) ON DELETE CASCADE,
     token VARCHAR(255) NOT NULL,

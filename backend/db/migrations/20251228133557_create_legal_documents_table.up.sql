@@ -1,4 +1,4 @@
-CREATE TABLE legal_documents (
+CREATE TABLE IF NOT EXISTS legal_documents (
     id SERIAL PRIMARY KEY,
     type VARCHAR(50) NOT NULL,
     version VARCHAR(50) NOT NULL,

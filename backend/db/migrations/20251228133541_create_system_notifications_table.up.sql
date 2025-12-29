@@ -1,4 +1,4 @@
-CREATE TABLE system_notifications (
+CREATE TABLE IF NOT EXISTS system_notifications (
     id SERIAL PRIMARY KEY,
     type VARCHAR(50) NOT NULL,
     title VARCHAR(150) NOT NULL,

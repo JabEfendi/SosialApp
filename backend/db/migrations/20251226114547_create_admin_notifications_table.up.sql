@@ -1,4 +1,4 @@
-CREATE TABLE admin_notifications (
+CREATE TABLE IF NOT EXISTS admin_notifications (
     id SERIAL PRIMARY KEY,
     admin_id INTEGER NOT NULL REFERENCES admins(id) ON DELETE CASCADE,
     type VARCHAR(50) NOT NULL,

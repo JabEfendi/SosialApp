@@ -1,4 +1,4 @@
-CREATE TABLE admin_roles (
+CREATE TABLE IF NOT EXISTS admin_roles (
     id SERIAL PRIMARY KEY,
     name VARCHAR(50) NOT NULL UNIQUE,
     description VARCHAR(255),

@@ -1,4 +1,4 @@
-CREATE TABLE email_campaigns (
+CREATE TABLE IF NOT EXISTS email_campaigns (
     id SERIAL PRIMARY KEY,
     title VARCHAR(150) NOT NULL,
     subject VARCHAR(150) NOT NULL,
