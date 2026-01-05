@@ -37,8 +37,8 @@ func SystemRoutes(r *gin.Engine) {
     
     kyc := r.Group("/kyc")
         kyc.POST("/", controllers.SubmitOrUpdateKyc)
-        kyc.POST("/approve", controllers.ApproveKyc)
-        kyc.POST("/reject", controllers.RejectKyc)
+        kyc.POST("/approve", middlewares.AdminAuth(), controllers.ApproveKyc)
+        kyc.POST("/reject", middlewares.AdminAuth(), controllers.RejectKyc)
         
     room := r.Group("/room")
         room.POST("/", controllers.CreateRoom)

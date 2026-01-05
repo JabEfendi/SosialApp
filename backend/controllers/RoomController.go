@@ -17,8 +17,9 @@ type InputRoom struct {
     Name             string  `json:"name" binding:"required"`
     Description      string  `json:"description" binding:"required"`
     StartTime        string  `json:"start_time" binding:"required,datetime=2006-01-02 15:04:05"`
-    EndTime          string  `json:"end_time"`
-    Duration         int  `json:"duration" binding:"required"`
+    EndTimeCheck     bool    `json:"end_time_check"`
+    EndTime          *time.Time  `json:"end_time"`
+    Duration         int     `json:"duration" binding:"required"`
     Capacity         int     `json:"capacity"`
     FeePerPerson     float64 `json:"fee_per_person"`
     Gender           string  `json:"gender"`
@@ -40,8 +41,13 @@ func CreateRoom(c *gin.Context) {
     }
 
     var kyc models.KycSession
-    if err := db.DB.Where("user_id = ? AND used = false", input.UserID).First(&kyc).Error; err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"error": "KYC has not been submitted or has been used"})
+    if err := db.DB.
+        Where("user_id = ? AND status = ?", input.UserID, "approved").
+        First(&kyc).Error; err != nil {
+
+        c.JSON(http.StatusForbidden, gin.H{
+            "error": "KYC has not been approved. Please complete the KYC process first.",
+        })
         return
     }
 
@@ -49,16 +55,33 @@ func CreateRoom(c *gin.Context) {
 
     startTime, err := time.ParseInLocation(layout, input.StartTime, time.Local)
     if err != nil {
-            c.JSON(400, gin.H{"error": "Invalid start_time format. Use: YYYY-MM-DD HH:MM:SS"})
-            return
+        c.JSON(400, gin.H{"error": "Invalid start_time format. Use: YYYY-MM-DD HH:MM:SS"})
+        return
     }
 
-    endTime, err := time.ParseInLocation(layout, input.EndTime, time.Local)
-    if err != nil {
+    var endTime *time.Time
+    if input.EndTimeCheck {
+        if input.EndTime == "" {
+            c.JSON(400, gin.H{"error": "end_time is required because checkbox is checked"})
+            return
+        }
+        t, err := time.ParseInLocation(layout, input.EndTime, time.Local)
+        if err != nil {
             c.JSON(400, gin.H{"error": "Invalid end_time format. Use: YYYY-MM-DD HH:MM:SS"})
             return
+        }
+        endTime = &t
+    } else {
+        if input.EndTime != "" {
+            t, err := time.ParseInLocation(layout, input.EndTime, time.Local)
+            if err != nil {
+                c.JSON(400, gin.H{"error": "Invalid end_time format. Use: YYYY-MM-DD HH:MM:SS"})
+                return
+            }
+            endTime = &t
+        }
     }
-    
+
     var mapLoc models.MapLoc
     if err := db.DB.
         Where("id = ? AND is_active = true", input.MapLocID).
@@ -87,27 +110,31 @@ func CreateRoom(c *gin.Context) {
         ImageURL:         input.ImageURL,
         Status:           "active",
     }
-    db.DB.Create(&room)
 
-    kyc.Used = true
-    db.DB.Save(&kyc)
+    if err := db.DB.Create(&room).Error; err != nil {
+        c.JSON(500, gin.H{"error": "Failed to create room"})
+        return
+    }
 
-		summary := map[string]interface{}{
-				"room_name": room.Name,
-				"kyc_data":  json.RawMessage(kyc.DataJSON),
-		}
-		summaryBytes, _ := json.Marshal(summary)
+    summary := map[string]interface{}{
+        "room_name": room.Name,
+        "kyc_data":  json.RawMessage(kyc.DataJSON),
+    }
+    summaryBytes, _ := json.Marshal(summary)
 
     log := models.RoomLog{
-        RoomID:    room.ID,
-        UserID:    input.UserID,
-        KycStatus: "valid",
-        Summary_json:   datatypes.JSON(summaryBytes),
+        RoomID:       room.ID,
+        UserID:       input.UserID,
+        KycStatus:    "approved",
+        Summary_json: datatypes.JSON(summaryBytes),
     }
-    db.DB.Create(&log)
-		db.DB.Delete(&kyc)
 
-    c.JSON(http.StatusOK, gin.H{"message": "Room created", "room": room})
+    db.DB.Create(&log)
+
+    c.JSON(http.StatusOK, gin.H{
+        "message": "Room created successfully",
+        "room":    room,
+    })
 }
 
 

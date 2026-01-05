@@ -3,11 +3,12 @@ package helpers
 import (
 	"time"
 	"errors"
+	"os"
 
 	"github.com/golang-jwt/jwt/v5"
 )
 
-var jwtSecret = []byte("super-secret-key-123")
+var jwtSecret = []byte(os.Getenv("JWT_SECRET"))
 
 func GenerateAdminToken(adminID uint, role string) (string, error) {
 	claims := jwt.MapClaims{

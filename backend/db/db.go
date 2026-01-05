@@ -4,12 +4,19 @@ import (
     "gorm.io/driver/postgres"
     "gorm.io/gorm"
     "log"
+    "os"
 )
 
 var DB *gorm.DB
 
 func ConnectDB() {
-    dsn := "postgres://postgres:Mahatahu@localhost:5432/SosialApp?sslmode=disable"
+    dsn := "postgres://" +
+		os.Getenv("DB_USER") + ":" +
+		os.Getenv("DB_PASSWORD") + "@" +
+		os.Getenv("DB_HOST") + ":" +
+		os.Getenv("DB_PORT") + "/" +
+		os.Getenv("DB_NAME") +
+		"?sslmode=" + os.Getenv("DB_SSLMODE")
 
     var err error
     DB, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})

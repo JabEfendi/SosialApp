@@ -4,10 +4,20 @@ import (
     "backend/db"
     "backend/routes"
     "backend/firebase"
+    "os"
+    "log"
+
     "github.com/gin-gonic/gin"
+    "github.com/joho/godotenv"
 )
 
 func main() {
+    if err := godotenv.Load(); err != nil {
+		log.Println("⚠️ .env not found, using system environment")
+	}
+
+	log.Println("APP NAME =", os.Getenv("APP_NAME"))
+
     r := gin.Default()
 
     db.ConnectDB()
@@ -16,6 +26,9 @@ func main() {
 
     routes.SystemRoutes(r)
 
-    r.Run(":8080")
+    port := os.Getenv("APP_PORT")
+    r.Run(":" + port)
+    log.Println("DB NAME =", os.Getenv("DB_NAME"))
+    log.Println("JWT =", os.Getenv("JWT_SECRET"))
 }
 

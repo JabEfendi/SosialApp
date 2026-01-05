@@ -8,7 +8,8 @@ type Room struct {
     Name             string
     Description      string
     StartTime        time.Time
-    EndTime          time.Time
+    EndTimeCheck     bool    `json:"end_time_check"`
+    EndTime          *time.Time
     Duration         time.Duration
     MapLocID         *uint      `json:"map_loc_id"`
     MapLoc           MapLoc    `gorm:"foreignKey:MapLocID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL" json:"map_loc"`

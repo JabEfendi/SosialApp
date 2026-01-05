@@ -14,7 +14,7 @@ import (
 func SubmitOrUpdateKyc(c *gin.Context) {
     var input struct {
         UserID   uint                   `json:"user_id"`
-        DataJSON map[string]interface{} `json:"data_json"`
+        DataJSON map[string]interface{} `json:"data_json" binding:"required"`
     }
 
     if err := c.ShouldBindJSON(&input); err != nil {
@@ -28,28 +28,36 @@ func SubmitOrUpdateKyc(c *gin.Context) {
     err := db.DB.Where("user_id = ?", input.UserID).First(&kyc).Error
 
     if err == gorm.ErrRecordNotFound {
+        // CREATE KYC
         newKyc := models.KycSession{
             UserID:   input.UserID,
             DataJSON: datatypes.JSON(jsonBytes),
-            Used:     false,
             Status:   "pending",
         }
 
         db.DB.Create(&newKyc)
-        c.JSON(http.StatusOK, gin.H{"message": "KYC created and pending", "kyc": newKyc})
+        c.JSON(http.StatusOK, gin.H{
+            "message": "KYC submitted and pending approval",
+            "kyc":     newKyc,
+        })
         return
     }
 
+    // UPDATE KYC → reset ke pending
     kyc.DataJSON = datatypes.JSON(jsonBytes)
     kyc.Status = "pending"
+
     db.DB.Save(&kyc)
 
-    c.JSON(http.StatusOK, gin.H{"message": "KYC updated and pending", "kyc": kyc})
+    c.JSON(http.StatusOK, gin.H{
+        "message": "KYC updated and pending approval",
+        "kyc":     kyc,
+    })
 }
 
 func ApproveKyc(c *gin.Context) {
     var input struct {
-        KycID uint `json:"kyc_id"`
+        KycID uint `json:"kyc_id" binding:"required"`
     }
 
     if err := c.ShouldBindJSON(&input); err != nil {
@@ -63,16 +71,18 @@ func ApproveKyc(c *gin.Context) {
         return
     }
 
-    kyc.Status = "active"
-    kyc.Used = false
+    kyc.Status = "approved"
     db.DB.Save(&kyc)
 
-    c.JSON(http.StatusOK, gin.H{"message": "KYC approved", "kyc": kyc})
+    c.JSON(http.StatusOK, gin.H{
+        "message": "KYC approved",
+        "kyc":     kyc,
+    })
 }
 
 func RejectKyc(c *gin.Context) {
     var input struct {
-        KycID uint `json:"kyc_id"`
+        KycID uint `json:"kyc_id" binding:"required"`
     }
 
     if err := c.ShouldBindJSON(&input); err != nil {
@@ -86,6 +96,11 @@ func RejectKyc(c *gin.Context) {
         return
     }
 
-    db.DB.Delete(&kyc)
-    c.JSON(http.StatusOK, gin.H{"message": "KYC rejected and deleted"})
+    kyc.Status = "rejected"
+    db.DB.Save(&kyc)
+
+    c.JSON(http.StatusOK, gin.H{
+        "message": "KYC rejected",
+        "kyc":     kyc,
+    })
 }
