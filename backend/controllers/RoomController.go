@@ -31,110 +31,125 @@ type InputRoom struct {
 }
 
 func CreateRoom(c *gin.Context) {
-    var input InputRoom
-    if err := c.ShouldBindJSON(&input); err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{
-            "error": "Validation failed",
-            "details": err.Error(),
-        })
-        return
-    }
+	var input InputRoom
 
-    var kyc models.KycSession
-    if err := db.DB.
-        Where("user_id = ? AND status = ?", input.UserID, "approved").
-        First(&kyc).Error; err != nil {
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "Validation failed",
+			"details": err.Error(),
+		})
+		return
+	}
 
-        c.JSON(http.StatusForbidden, gin.H{
-            "error": "KYC has not been approved. Please complete the KYC process first.",
-        })
-        return
-    }
+	// 1️⃣ Check KYC
+	var kyc models.KycSession
+	if err := db.DB.
+		Where("user_id = ? AND status = ?", input.UserID, "approved").
+		First(&kyc).Error; err != nil {
 
-    layout := "2006-01-02 15:04:05"
+		c.JSON(http.StatusForbidden, gin.H{
+			"error": "KYC has not been approved. Please complete the KYC process first.",
+		})
+		return
+	}
 
-    startTime, err := time.ParseInLocation(layout, input.StartTime, time.Local)
-    if err != nil {
-        c.JSON(400, gin.H{"error": "Invalid start_time format. Use: YYYY-MM-DD HH:MM:SS"})
-        return
-    }
+	// 2️⃣ Parse start_time (string → time.Time)
+	layout := "2006-01-02 15:04:05"
+	startTime, err := time.ParseInLocation(layout, input.StartTime, time.Local)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Invalid start_time format. Use: YYYY-MM-DD HH:MM:SS",
+		})
+		return
+	}
 
-    var endTime *time.Time
-    if input.EndTimeCheck {
-        if input.EndTime == "" {
-            c.JSON(400, gin.H{"error": "end_time is required because checkbox is checked"})
-            return
-        }
-        t, err := time.ParseInLocation(layout, input.EndTime, time.Local)
-        if err != nil {
-            c.JSON(400, gin.H{"error": "Invalid end_time format. Use: YYYY-MM-DD HH:MM:SS"})
-            return
-        }
-        endTime = &t
-    } else {
-        if input.EndTime != "" {
-            t, err := time.ParseInLocation(layout, input.EndTime, time.Local)
-            if err != nil {
-                c.JSON(400, gin.H{"error": "Invalid end_time format. Use: YYYY-MM-DD HH:MM:SS"})
-                return
-            }
-            endTime = &t
-        }
-    }
+	// 3️⃣ Handle end_time (nullable)
+	var endTime *time.Time
 
-    var mapLoc models.MapLoc
-    if err := db.DB.
-        Where("id = ? AND is_active = true", input.MapLocID).
-        First(&mapLoc).Error; err != nil {
+	if input.EndTimeCheck {
+		if input.EndTime == nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": "end_time is required because end_time_check is true",
+			})
+			return
+		}
 
-        c.JSON(400, gin.H{"error": "Invalid or inactive map location"})
-        return
-    }
+		// Optional: validasi end_time > start_time
+		if input.EndTime.Before(startTime) {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": "end_time must be after start_time",
+			})
+			return
+		}
 
-    room := models.Room{
-        UserID:           input.UserID,
-        MapLocID:         &input.MapLocID,
-        Name:             input.Name,
-        Description:      input.Description,
-        StartTime:        startTime,
-        EndTime:          endTime,
-        Duration:         time.Duration(input.Duration) * time.Minute,
-        Capacity:         input.Capacity,
-        FeePerPerson:     input.FeePerPerson,
-        IsPaid:           input.FeePerPerson > 0,
-        Gender:           input.Gender,
-        AgeGroup:         input.AgeGroup,
-        IsRegular:        input.IsRegular,
-        AutoApprove:      input.AutoApprove,
-        SendNotification: input.SendNotification,
-        ImageURL:         input.ImageURL,
-        Status:           "active",
-    }
+		endTime = input.EndTime
+	} else {
+		// checkbox off → end_time boleh ada / boleh null
+		endTime = input.EndTime
+	}
 
-    if err := db.DB.Create(&room).Error; err != nil {
-        c.JSON(500, gin.H{"error": "Failed to create room"})
-        return
-    }
+	// 4️⃣ Validate map location
+	var mapLoc models.MapLoc
+	if err := db.DB.
+		Where("id = ? AND is_active = true", input.MapLocID).
+		First(&mapLoc).Error; err != nil {
 
-    summary := map[string]interface{}{
-        "room_name": room.Name,
-        "kyc_data":  json.RawMessage(kyc.DataJSON),
-    }
-    summaryBytes, _ := json.Marshal(summary)
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Invalid or inactive map location",
+		})
+		return
+	}
 
-    log := models.RoomLog{
-        RoomID:       room.ID,
-        UserID:       input.UserID,
-        KycStatus:    "approved",
-        Summary_json: datatypes.JSON(summaryBytes),
-    }
+	// 5️⃣ Create room
+	room := models.Room{
+		UserID:           input.UserID,
+		MapLocID:         &input.MapLocID,
+		Name:             input.Name,
+		Description:      input.Description,
+		StartTime:        startTime,
+		EndTime:          endTime,
+		Duration:         time.Duration(input.Duration) * time.Minute,
+		Capacity:         input.Capacity,
+		FeePerPerson:     input.FeePerPerson,
+		IsPaid:           input.FeePerPerson > 0,
+		Gender:           input.Gender,
+		AgeGroup:         input.AgeGroup,
+		IsRegular:        input.IsRegular,
+		AutoApprove:      input.AutoApprove,
+		SendNotification: input.SendNotification,
+		ImageURL:         input.ImageURL,
+		Status:           "active",
+	}
 
-    db.DB.Create(&log)
+	if err := db.DB.Create(&room).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to create room",
+		})
+		return
+	}
 
-    c.JSON(http.StatusOK, gin.H{
-        "message": "Room created successfully",
-        "room":    room,
-    })
+	// 6️⃣ Log room creation
+	summary := map[string]interface{}{
+		"room_name": room.Name,
+		"kyc_data":  json.RawMessage(kyc.DataJSON),
+	}
+
+	summaryBytes, _ := json.Marshal(summary)
+
+	log := models.RoomLog{
+		RoomID:       room.ID,
+		UserID:       input.UserID,
+		KycStatus:    "approved",
+		Summary_json: datatypes.JSON(summaryBytes),
+	}
+
+	db.DB.Create(&log)
+
+	// 7️⃣ Response
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Room created successfully",
+		"room":    room,
+	})
 }
 
 
@@ -228,51 +243,70 @@ func GetRoomParticipants(c *gin.Context) {
 }
 
 func ListRoom(c *gin.Context) {
-    lat := c.Query("lat")
-    lng := c.Query("lng")
+	lat := c.Query("lat")
+	lng := c.Query("lng")
 
-    if lat == "" || lng == "" {
-        c.JSON(400, gin.H{
-            "error": "lat and lng are required",
-        })
-        return
-    }
+	if lat == "" || lng == "" {
+		c.JSON(400, gin.H{
+			"error": "lat and lng are required",
+		})
+		return
+	}
 
-    radius := 10.0 // KM
+	gender := c.Query("gender")
+	ageGroup := c.Query("age_group")
+	isPaid := c.Query("is_paid")
 
-    var rooms []models.Room
+	radius := 10.0
+	var rooms []models.Room
 
-    query := `
-        SELECT rooms.* FROM rooms
-        JOIN map_locs ON map_locs.id = rooms.map_loc_id
-        WHERE map_locs.is_active = true
-        AND (
-            6371 * acos(
-                cos(radians(?)) * cos(radians(map_locs.latitude)) *
-                cos(radians(map_locs.longitude) - radians(?)) +
-                sin(radians(?)) * sin(radians(map_locs.latitude))
-            )
-        ) <= ?
-    `
+	query := `
+		SELECT rooms.* FROM rooms
+		JOIN map_locs ON map_locs.id = rooms.map_loc_id
+		WHERE map_locs.is_active = true
+		AND (
+			6371 * acos(
+				cos(radians(?)) * cos(radians(map_locs.latitude)) *
+				cos(radians(map_locs.longitude) - radians(?)) +
+				sin(radians(?)) * sin(radians(map_locs.latitude))
+			)
+		) <= ?
+	`
 
-    if err := db.DB.
-        Raw(query, lat, lng, lat, radius).
-        Scan(&rooms).Error; err != nil {
+	args := []interface{}{lat, lng, lat, radius}
 
-        c.JSON(500, gin.H{"error": "Failed to fetch rooms"})
-        return
-    }
+	if gender != "" {
+		query += " AND rooms.gender = ?"
+		args = append(args, gender)
+	}
 
-    for i := range rooms {
-        db.DB.Preload("MapLoc").First(&rooms[i], rooms[i].ID)
-    }
+	if ageGroup != "" {
+		query += " AND rooms.age_group = ?"
+		args = append(args, ageGroup)
+	}
 
-    c.JSON(200, gin.H{
-        "message": "Rooms found nearby",
-        "radius_km": radius,
-        "total": len(rooms),
-        "rooms": rooms,
-    })
+	if isPaid != "" {
+		query += " AND rooms.is_paid = ?"
+		args = append(args, isPaid)
+	}
+
+	if err := db.DB.Raw(query, args...).Scan(&rooms).Error; err != nil {
+		c.JSON(500, gin.H{
+			"error": "Failed to fetch rooms",
+		})
+		return
+	}
+
+	for i := range rooms {
+		db.DB.Preload("MapLoc").First(&rooms[i], rooms[i].ID)
+	}
+
+	c.JSON(200, gin.H{
+		"message":   "Rooms found nearby",
+		"radius_km": radius,
+		"total":     len(rooms),
+		"rooms":     rooms,
+	})
 }
 
 func DetailRoom(c *gin.Context) {

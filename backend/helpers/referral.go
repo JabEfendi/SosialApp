@@ -9,11 +9,16 @@ import (
 func GenerateReferralCode(name string) string {
 	rand.Seed(time.Now().UnixNano())
 
-	base := strings.ToUpper(strings.ReplaceAll(name, " ", ""))
-	if len(base) > 5 {
-		base = base[:5]
+	prefix := strings.ToUpper(strings.ReplaceAll(name, " ", ""))
+	if len(prefix) > 3 {
+		prefix = prefix[:3]
 	}
 
-	random := rand.Intn(9000) + 1000
-	return base + string(rune(random))
+	const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	suffix := ""
+	for i := 0; i < 9; i++ {
+		suffix += string(chars[rand.Intn(len(chars))])
+	}
+
+	return prefix + suffix
 }

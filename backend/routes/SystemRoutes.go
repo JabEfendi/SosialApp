@@ -7,9 +7,9 @@ import (
 )
 
 func SystemRoutes(r *gin.Engine) {
-    r.GET("/test", controllers.Test)
     r.GET("/testlog", controllers.Ceklog)
     r.POST("/notif/test", controllers.SendTestNotification)
+    r.GET("/account-banks", controllers.GetAccountBanks)
 
     reg := r.Group("/register")
         reg.POST("/request-otp", controllers.RegisterRequest)
@@ -34,6 +34,10 @@ func SystemRoutes(r *gin.Engine) {
         user.GET("/photos/:id", controllers.GetUserPhotos)
         user.POST("/photos/set-avatar", controllers.SetProfilePhoto)
         user.DELETE("/photos/:id", controllers.DeleteUserPhoto)
+        user.POST("/withdraw-account", controllers.CreateWithdrawAccount)
+		user.PUT("/withdraw-account/request-update", controllers.RequestUpdateWithdrawAccount)
+		user.GET("/withdraw-account", controllers.GetMyWithdrawAccount)
+        user.POST("/withdraw", controllers.WithdrawCommission)
     
     kyc := r.Group("/kyc")
         kyc.POST("/", controllers.SubmitOrUpdateKyc)
@@ -101,6 +105,12 @@ func SystemRoutes(r *gin.Engine) {
         admin.POST("/corporates", middlewares.AdminAuth(), middlewares.SuperAdminOnly(), controllers.CreateCorporate)
         admin.PUT("/corporates/:id", middlewares.AdminAuth(), middlewares.SuperAdminOnly(), controllers.UpdateCorporate)
         admin.PATCH("/corporates/:id/status", middlewares.AdminAuth(), middlewares.SuperAdminOnly(),  controllers.ChangeCorporateStatus)
+        admin.GET("/reports", middlewares.AdminAuth(), controllers.AdminListUserReports)
+        admin.POST("/reports/:id/verify", middlewares.AdminAuth(), controllers.AdminVerifyReport)
+        admin.POST("/users/:id/status", middlewares.AdminAuth(), controllers.AdminSuspendUser)
+        admin.GET("/biostar", middlewares.SuperAdminOnly(), controllers.GetAllUsers) // karna namanya beda ini untuk get all user tapi khusus untuk superadmin
+        admin.GET("/allstar", middlewares.AdminAuth(), controllers.GetPublicUsers) // karna namanya beda ini untuk get all user tapi khusus untuk admin
+        admin.GET("/all-community", middlewares.AdminAuth(), controllers.GetAllCommunity)
 
     sys := admin.Group("/system")
         sys.POST("/permissions", middlewares.AdminAuth(), middlewares.RequirePermission("system.permission.create"), controllers.CreatePermission)
@@ -110,6 +120,11 @@ func SystemRoutes(r *gin.Engine) {
         sys.POST("/legal", middlewares.AdminAuth(), middlewares.RequirePermission("system.legal.update"), controllers.CreateLegalDocument)
         sys.POST("/email-campaigns", middlewares.AdminAuth(), middlewares.RequirePermission("system.email.schedule"), controllers.CreateEmailCampaign)
         sys.POST("/maintenance", middlewares.AdminAuth(), middlewares.RequirePermission("system.maintenance.create"), controllers.CreateMaintenance)
+
+    reports := r.Group("/reports")
+        reports.GET("/reasons", controllers.GetReportReasons)
+        reports.POST("/", controllers.ReportUser)
+
 }
 
 

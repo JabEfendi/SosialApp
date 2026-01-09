@@ -8,6 +8,6 @@ CREATE TABLE IF NOT EXISTS corporates (
     created_at TIMESTAMP,
     updated_at TIMESTAMP
 );
-ALTER TABLE users
-ADD COLUMN corporate_id BIGINT NULL REFERENCES corporates(id) ON DELETE SET NULL,
-ADD COLUMN joined_corporate_at TIMESTAMP NULL;
+-- ALTER TABLE users
+-- ADD COLUMN corporate_id BIGINT NULL REFERENCES corporates(id) ON DELETE SET NULL,
+-- ADD COLUMN joined_corporate_at TIMESTAMP NULL;

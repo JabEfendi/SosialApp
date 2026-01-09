@@ -3,6 +3,7 @@ package controllers
 import (
 	"net/http"
 	"time"
+	"gorm.io/gorm"
 
 	"backend/db"
 	"backend/helpers"
@@ -593,5 +594,109 @@ func MarkAllNotificationsAsRead(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "all notifications marked as read",
+	})
+}
+
+func AdminListUserReports(c *gin.Context) {
+	var reports []models.UserReport
+
+	query := db.DB.
+		Preload("Reporter").
+		Preload("ReportedUser").
+		Preload("Reason").
+		Order("created_at DESC")
+
+	// optional filter
+	if status := c.Query("status"); status != "" {
+		query = query.Where("status = ?", status)
+	}
+
+	if err := query.Find(&reports).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": "Failed to fetch user reports",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"data": reports,
+	})
+}
+
+func AdminVerifyReport(c *gin.Context) {
+	reportID := c.Param("id")
+
+	var input struct {
+		AdminNote string `json:"admin_note"`
+	}
+
+	_ = c.ShouldBindJSON(&input)
+
+	var report models.UserReport
+	if err := db.DB.First(&report, reportID).Error; err != nil {
+		c.JSON(404, gin.H{"error": "report not found"})
+		return
+	}
+
+	if report.Status != "pending" {
+		c.JSON(400, gin.H{"error": "report already processed"})
+		return
+	}
+
+	tx := db.DB.Begin()
+	if tx.Error != nil {
+		c.JSON(500, gin.H{"error": "transaction failed"})
+		return
+	}
+
+	// update report
+	if err := tx.Model(&report).Updates(map[string]interface{}{
+		"status":     "action_taken",
+		"admin_note": input.AdminNote,
+	}).Error; err != nil {
+		tx.Rollback()
+		c.JSON(500, gin.H{"error": "failed to update report"})
+		return
+	}
+
+	// update user
+	if err := tx.Model(&models.User{}).
+		Where("id = ?", report.ReportedUserID).
+		Updates(map[string]interface{}{
+			"is_reported":  true,
+			"report_count": gorm.Expr("report_count + 1"),
+		}).Error; err != nil {
+		tx.Rollback()
+		c.JSON(500, gin.H{"error": "failed to update user"})
+		return
+	}
+
+	tx.Commit()
+
+	c.JSON(200, gin.H{"message": "report verified and action taken"})
+}
+
+func AdminSuspendUser(c *gin.Context) {
+	userID := c.Param("id")
+
+	var input struct {
+		Status string `json:"status" binding:"required,oneof=active suspended banned"`
+		Note   string `json:"note"`
+	}
+
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+
+	db.DB.Model(&models.User{}).
+		Where("id = ?", userID).
+		Updates(map[string]interface{}{
+			"status": input.Status,
+		})
+
+	c.JSON(200, gin.H{
+		"message": "user status updated",
+		"status":  input.Status,
 	})
 }

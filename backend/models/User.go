@@ -17,7 +17,7 @@ type User struct {
 	Provider   string `gorm:"size:50;default:local"`
 	ProviderID string `gorm:"size:255"`
 	Avatar     string `gorm:"type:text"`
-	CoinBalance int64 `gorm:"default:0"`
+	// CoinBalance int64 `gorm:"default:0"`
 	ReferralCode string `gorm:"size:20;unique"`
 	ReferredBy   *uint
 	Referrer *User `gorm:"foreignKey:ReferredBy"`
@@ -27,4 +27,7 @@ type User struct {
 	CorporateID       *uint
 	JoinedCorporateAt *time.Time
 	Corporate *Corporate `gorm:"foreignKey:CorporateID"`
+	IsReported  bool   `gorm:"default:false"`
+	ReportCount int    `gorm:"default:0"`
+	Status      string `gorm:"size:20;default:'active'"`
 }

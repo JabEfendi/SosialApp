@@ -1,0 +1,3 @@
+ALTER TABLE users ADD COLUMN is_reported BOOLEAN DEFAULT false;
+ALTER TABLE users ADD COLUMN report_count INT DEFAULT 0;
+ALTER TABLE users ADD COLUMN status VARCHAR(20) DEFAULT 'active';

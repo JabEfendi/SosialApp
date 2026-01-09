@@ -87,6 +87,21 @@ func RegisterRequest(c *gin.Context) {
     })
 }
 
+func generateUniqueReferralCode(name string) string {
+	for {
+		code := helpers.GenerateReferralCode(name)
+
+		var count int64
+		db.DB.Model(&models.User{}).
+			Where("referral_code = ?", code).
+			Count(&count)
+
+		if count == 0 {
+			return code
+		}
+	}
+}
+
 func RegisterVerify(c *gin.Context) {
     var input struct {
         Email string `json:"email" binding:"required,email"`
@@ -116,7 +131,7 @@ func RegisterVerify(c *gin.Context) {
         return
     }
 
-    referralCode := helpers.GenerateReferralCode(temp.Name)
+    referralCode := generateUniqueReferralCode(temp.Name)
     user := models.User{
         Name:     temp.Name,
         Username: temp.Username,
@@ -974,20 +989,117 @@ func ResetPassword(c *gin.Context) {
 }
 
 
-
 // _________________________________________________________________________________________________
-// test
-func Test(c *gin.Context) {
-	var users []models.User
+// report
+func GetReportReasons(c *gin.Context) {
+	var reasons []models.ReportReason
 
-	if err := db.DB.Find(&users).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	if err := db.DB.
+		Where("is_active = true").
+		Order("id ASC").
+		Find(&reasons).Error; err != nil {
+
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": "Failed to fetch report reasons",
+		})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message": "User data found",
-		"users":   users,
+		"data": reasons,
+	})
+}
+
+func ReportUser(c *gin.Context) {
+	userID := c.MustGet("user_id").(uint)
+
+	var input struct {
+		ReportedUserID uint   `json:"reported_user_id" binding:"required"`
+		ReasonID       uint   `json:"reason_id" binding:"required"`
+		Description    string `json:"description"`
+	}
+
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+
+	if userID == input.ReportedUserID {
+		c.JSON(400, gin.H{"error": "cannot report yourself"})
+		return
+	}
+
+	// Cegah spam report (1 user hanya boleh report 1x user yg sama)
+	var exist models.UserReport
+	if err := db.DB.Where(
+		"reporter_id = ? AND reported_user_id = ?",
+		userID, input.ReportedUserID,
+	).First(&exist).Error; err == nil {
+		c.JSON(400, gin.H{"error": "you already reported this user"})
+		return
+	}
+
+	report := models.UserReport{
+		ReporterID:     userID,
+		ReportedUserID: input.ReportedUserID,
+		ReasonID:       input.ReasonID,
+		Description:    input.Description,
+	}
+
+	db.DB.Create(&report)
+
+	c.JSON(201, gin.H{
+		"message": "report submitted successfully",
+	})
+}
+
+
+
+// _________________________________________________________________________________________________
+// test
+func GetAllUsers(c *gin.Context) {
+	var users []models.User
+
+	if err := db.DB.Find(&users).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": "Failed to retrieve users",
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "All user data retrieved",
+		"data":    users,
+	})
+}
+
+func GetPublicUsers(c *gin.Context) {
+	type PublicUser struct {
+		ID       uint   `json:"id"`
+		Name     string `json:"name"`
+		Username string `json:"username"`
+		Email    string `json:"email"`
+		Phone    string `json:"phone"`
+	}
+
+	var users []PublicUser
+
+	if err := db.DB.
+		Model(&models.User{}).
+		Select("id, name, username, email, phone").
+		Find(&users).Error; err != nil {
+
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": "Failed to retrieve users",
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Public user data retrieved",
+		"data":    users,
 	})
 }
 

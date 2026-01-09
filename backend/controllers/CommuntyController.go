@@ -299,3 +299,32 @@ func DeletePhotoCommunity(c *gin.Context) {
         "message": "Photo deleted",
     })
 }
+
+func GetAllCommunity(c *gin.Context) {
+	var communities []models.Community
+
+	countryRegion := c.Query("country_region")
+	dbQuery := db.DB
+
+	if countryRegion != "" {
+		dbQuery = dbQuery.Where("country_region = ?", countryRegion)
+	}
+
+	if interests != "" {
+		dbQuery = dbQuery.Where("interests ILIKE ?", "%"+interests+"%")
+	}
+
+	if err := dbQuery.Find(&communities).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": "Failed to retrieve communities",
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Community data retrieved",
+		"total":   len(communities),
+		"data":    communities,
+	})
+}
