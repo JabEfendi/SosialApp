@@ -27,8 +27,6 @@ func main() {
     routes.SystemRoutes(r)
 
     port := os.Getenv("APP_PORT")
-    r.Run(":" + port)
-    log.Println("DB NAME =", os.Getenv("DB_NAME"))
-    log.Println("JWT =", os.Getenv("JWT_SECRET"))
+    r.Run("0.0.0.0:" + port)
 }
 

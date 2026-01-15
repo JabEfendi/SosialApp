@@ -700,3 +700,12 @@ func AdminSuspendUser(c *gin.Context) {
 		"status":  input.Status,
 	})
 }
+
+
+
+
+
+// ADMIN DASHBOARD
+func AdminDashboardStats(c *gin.Context) {
+	
+}

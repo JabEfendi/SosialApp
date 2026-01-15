@@ -310,6 +310,7 @@ func GetAllCommunity(c *gin.Context) {
 		dbQuery = dbQuery.Where("country_region = ?", countryRegion)
 	}
 
+	interests := c.Query("interests")
 	if interests != "" {
 		dbQuery = dbQuery.Where("interests ILIKE ?", "%"+interests+"%")
 	}

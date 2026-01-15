@@ -79,6 +79,182 @@ func RegisterRequest(c *gin.Context) {
         ExpiredAt: expired,
     })
 
+    // EMAIL
+    subject := "Kode Verifikasi OTP - SosialApp"
+    body := fmt.Sprintf(`
+    <table width="100%%" cellpadding="0" cellspacing="0" style="background:#7c3aed;padding:40px 0;">
+        <tr>
+            <td align="center" style="padding-bottom:20px;">
+                <img src="https://via.placeholder.com/120x40?text=LOGO"
+                    width="120"
+                    alt="Logo">
+            </td>
+        </tr>
+        <tr>
+            <td align="center">
+                <table width="380" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:18px;padding:24px;margin:0 10px;font-family:Arial,sans-serif;">
+                        <tr>
+                            <td align="center">
+                            <img src="https://via.placeholder.com/280x160"
+                                width="280"
+                                style="border-radius:12px;">
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="font-family:lexend;font-size:12px;color:#1E293B;text-align:center;line-height:1.2;">
+                            Halo <b>%s</b>,<br>
+                            Enter this OTP code to Lorem ipsum dolor sit amet consectetur. Sed sollicitudin sed cursus porttitor.
+                            </td>
+                        </tr>
+                        <tr>
+                            <td align="center"
+                            style="padding:20px 0;font-size:32px;font-weight:bold;letter-spacing:6px;color:#7c3aed;">
+                            %s
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="font-family:lexend;font-size:12px;color:#1E293B;text-align:center;line-height:1.2;">
+                                OTP ini berlaku selama <b>10 menit</b>.<br>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td align="center" style="font-size:12px;color:#dc2626;">
+                            Please do not share this secret code with anyone.
+                            </td>
+                        </tr>
+                        <tr>
+                            <td align="center" style="font-size:12px;color:#1E293B;">
+                            Thank You, <b>Pally Team</b>.
+                            </td>
+                        </tr>
+                </table>
+                
+                <!-- FOOTER -->
+                <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:24px;">
+                    <tr>
+                        <td align="center">
+
+                            <!-- APP STORE BUTTONS -->
+                            <table cellpadding="0" cellspacing="0" style="margin-bottom:16px;">
+                                <tr>
+                                    <!-- APP STORE -->
+                                    <td style="padding-right:10px;">
+                                        <a href="https://www.apple.com/app-store/"
+                                        style="display:inline-block;background:#ffffff;border-radius:999px;
+                                        padding:10px 16px;text-decoration:none;">
+                                        <table cellpadding="0" cellspacing="0">
+                                            <tr>
+                                            <td style="vertical-align:middle;padding-right:8px;">
+                                                <img src="https://upload.wikimedia.org/wikipedia/commons/f/fa/Apple_logo_black.svg"
+                                                    width="14" alt="Apple">
+                                            </td>
+                                            <td style="vertical-align:middle;font-size:11px;
+                                                        font-family:Arial,Helvetica,sans-serif;
+                                                        color:#000000;font-weight:bold;">
+                                                App Store
+                                            </td>
+                                            </tr>
+                                        </table>
+                                        </a>
+                                    </td>
+
+                                    <!-- GOOGLE PLAY -->
+                                    <td>
+                                        <a href="https://play.google.com/store" style="display:inline-block;background:#ffffff;border-radius:999px; padding:10px 16px;text-decoration:none;">
+                                            <table cellpadding="0" cellspacing="0">
+                                                <tr>
+                                                <td style="vertical-align:middle;padding-right:8px;">
+                                                    <img src="https://upload.wikimedia.org/wikipedia/commons/7/78/Google_Play_Store_badge_EN.svg"
+                                                        width="18" alt="Google Play">
+                                                </td>
+                                                <td style="vertical-align:middle;font-size:11px;
+                                                            font-family:Arial,Helvetica,sans-serif;
+                                                            color:#000000;font-weight:bold;">
+                                                    Google Play
+                                                </td>
+                                                </tr>
+                                            </table>
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <!-- BRAND INFO (GMAIL SAFE TEXT) -->
+                            <table width="360" cellpadding="0" cellspacing="0" style="margin-bottom:14px;">
+                                <tr>
+                                <td align="center"
+                                    style="font-size:12px;color:#E5E7EB;line-height:1.4;
+                                    font-family:Arial,Helvetica,sans-serif;">
+                                    Copyright © 2026 <b>Pally</b>, all rights reserved.
+                                </td>
+                                </tr>
+                            </table>
+
+                            <!-- SOCIAL ICONS -->
+                            <table cellpadding="0" cellspacing="0" style="margin-bottom:14px;">
+                                <tr>
+                                <td style="padding:0 6px;">
+                                    <a href="#">
+                                    <img src="https://cdn-icons-png.flaticon.com/512/733/733547.png"
+                                        width="18" alt="Facebook">
+                                    </a>
+                                </td>
+                                <td style="padding:0 6px;">
+                                    <a href="#">
+                                    <img src="https://cdn-icons-png.flaticon.com/512/733/733558.png"
+                                        width="18" alt="Instagram">
+                                    </a>
+                                </td>
+                                <td style="padding:0 6px;">
+                                    <a href="#">
+                                    <img src="https://cdn-icons-png.flaticon.com/512/5968/5968830.png"
+                                        width="18" alt="X">
+                                    </a>
+                                </td>
+                                </tr>
+                            </table>
+
+                            <!-- DESCRIPTION -->
+                            <table width="360" cellpadding="0" cellspacing="0" style="margin-bottom:14px;">
+                                <tr>
+                                <td align="center"
+                                    style="font-size:11px;color:#E5E7EB;line-height:1.5;
+                                    font-family:Arial,Helvetica,sans-serif;">
+                                    You’re receiving this message because a verification request was made on the
+                                    Pally platform. If this wasn’t you, please ignore this email.
+                                </td>
+                                </tr>
+                            </table>
+
+                            <!-- LINKS -->
+                            <table cellpadding="0" cellspacing="0">
+                                <tr>
+                                <td align="center"
+                                    style="font-size:11px;color:#E5E7EB;
+                                    font-family:Arial,Helvetica,sans-serif;">
+                                    <a href="#" style="color:#E5E7EB;text-decoration:underline;">Privacy Policy</a>
+                                    &nbsp;•&nbsp;
+                                    <a href="#" style="color:#E5E7EB;text-decoration:underline;">Terms of Service</a>
+                                    &nbsp;•&nbsp;
+                                    <a href="#" style="color:#E5E7EB;text-decoration:underline;">Unsubscribe</a>
+                                </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+    `, input.Name, otp)
+
+    if err := helpers.SendEmail(input.Email, subject, body); err != nil {
+        c.JSON(500, gin.H{
+            "error": "Gagal mengirim email OTP",
+        })
+        return
+    }
+
     fmt.Println("OTP DIKIRIM:", otp)
 
     c.JSON(200, gin.H{
@@ -359,14 +535,24 @@ func Login(c *gin.Context) {
 
     createLoginLog(c, user.ID)
 
-    c.JSON(http.StatusOK, gin.H{"message": "Login success", "user": user})
+    token, err := helpers.GenerateUserToken(user.ID)
+    if err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
+        return
+    }
+
+    c.JSON(http.StatusOK, gin.H{
+        "message": "Login success", 
+        "user": user, 
+        "token": token,
+    })
 }
 
 
 // _________________________________________________________________________________________________
 // change password
 func ChangePass(c *gin.Context) {
-    userID := c.Param("id")
+    userID := c.GetUint("user_id")
 
     var input struct {
         OldPassword string `json:"old_password"`
@@ -611,7 +797,7 @@ type UpdateUserInput struct {
 
 func UpdateUser(c *gin.Context) {
     var input UpdateUserInput
-    userID := c.Param("id")
+    userID := c.GetUint("user_id")
 
     if err := c.ShouldBindJSON(&input); err != nil {
         c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -778,7 +964,7 @@ func UploadAvatar(c *gin.Context) {
 }
 
 func GetUserPhotos(c *gin.Context) {
-    userID := c.Param("id")
+    userID := c.GetUint("user_id")
 
     var photos []models.UserPhoto
     db.DB.Where("user_id = ?", userID).Find(&photos)
@@ -814,7 +1000,7 @@ func SetProfilePhoto(c *gin.Context) {
 }
 
 func DeleteUserPhoto(c *gin.Context) {
-    photoID := c.Param("id")
+    photoID := c.GetUint("user_id")
 
     var photo models.UserPhoto
     if err := db.DB.First(&photo, photoID).Error; err != nil {
@@ -844,7 +1030,7 @@ func DeleteUserPhoto(c *gin.Context) {
 // _________________________________________________________________________________________________
 // user detail
 func GetUserDetail(c *gin.Context) {
-    userID := c.Param("id")
+    userID := c.GetUint("user_id")
 	var users models.User
 
 	if err := db.DB.Where(&userID).Find(&users).Error; err != nil {
