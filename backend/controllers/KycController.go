@@ -72,6 +72,7 @@ func ApproveKyc(c *gin.Context) {
     }
 
     kyc.Status = "approved"
+    kyc.Used = true
     db.DB.Save(&kyc)
 
     c.JSON(http.StatusOK, gin.H{
@@ -97,6 +98,7 @@ func RejectKyc(c *gin.Context) {
     }
 
     kyc.Status = "rejected"
+    kyc.Used = false
     db.DB.Save(&kyc)
 
     c.JSON(http.StatusOK, gin.H{

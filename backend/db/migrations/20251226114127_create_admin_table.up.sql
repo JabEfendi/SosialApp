@@ -12,3 +12,6 @@ CREATE TABLE IF NOT EXISTS admins (
     created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+INSERT INTO admins (role_id, name, email, password, status) 
+VALUES (1, 'Admin Super', 'admin@gmail.com', '$2a$12$u6m7w7bKQ8P7x9W2zY5r8e7cC5Z7nG9QzR1LqQZ0oF4kVnYwX5YpK', 'active');

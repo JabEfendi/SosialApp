@@ -5,3 +5,6 @@ CREATE TABLE token_wallets (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+INSERT INTO token_wallets (user_id, balance)
+VALUES (0, 0);

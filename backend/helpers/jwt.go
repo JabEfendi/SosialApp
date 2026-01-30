@@ -8,37 +8,39 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-// Ambil secret dari environment variable
-var jwtSecret = []byte(os.Getenv("JWT_SECRET"))
+func getJWTSecret() []byte {
+	return []byte(os.Getenv("JWT_SECRET"))
+}
 
-// ===================== ADMIN =====================
+/* ===================== ADMIN ===================== */
 
-// Claims untuk admin
 type AdminClaims struct {
 	AdminID uint   `json:"admin_id"`
 	Role    string `json:"role"`
 	jwt.RegisteredClaims
 }
 
-// Generate token untuk admin
 func GenerateAdminToken(adminID uint, role string) (string, error) {
 	claims := AdminClaims{
 		AdminID: adminID,
 		Role:    role,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)), // token 24 jam
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
 		},
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString(jwtSecret)
+	return token.SignedString(getJWTSecret())
 }
 
-// Validasi token admin
 func ValidateAdminToken(tokenString string) (*AdminClaims, error) {
-	token, err := jwt.ParseWithClaims(tokenString, &AdminClaims{}, func(token *jwt.Token) (interface{}, error) {
-		return jwtSecret, nil
-	})
+	token, err := jwt.ParseWithClaims(
+		tokenString,
+		&AdminClaims{},
+		func(token *jwt.Token) (interface{}, error) {
+			return getJWTSecret(), nil
+		},
+	)
 
 	if err != nil || !token.Valid {
 		return nil, err
@@ -52,15 +54,13 @@ func ValidateAdminToken(tokenString string) (*AdminClaims, error) {
 	return claims, nil
 }
 
-// ===================== USER =====================
+/* ===================== USER ===================== */
 
-// Claims untuk user
 type UserClaims struct {
 	UserID uint `json:"user_id"`
 	jwt.RegisteredClaims
 }
 
-// Generate token untuk user
 func GenerateUserToken(userID uint) (string, error) {
 	claims := UserClaims{
 		UserID: userID,
@@ -70,14 +70,17 @@ func GenerateUserToken(userID uint) (string, error) {
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString(jwtSecret)
+	return token.SignedString(getJWTSecret())
 }
 
-// Validasi token user
 func ValidateUserToken(tokenString string) (*UserClaims, error) {
-	token, err := jwt.ParseWithClaims(tokenString, &UserClaims{}, func(token *jwt.Token) (interface{}, error) {
-		return jwtSecret, nil
-	})
+	token, err := jwt.ParseWithClaims(
+		tokenString,
+		&UserClaims{},
+		func(token *jwt.Token) (interface{}, error) {
+			return getJWTSecret(), nil
+		},
+	)
 
 	if err != nil || !token.Valid {
 		return nil, err
@@ -86,6 +89,46 @@ func ValidateUserToken(tokenString string) (*UserClaims, error) {
 	claims, ok := token.Claims.(*UserClaims)
 	if !ok {
 		return nil, jwt.ErrTokenInvalidClaims
+	}
+
+	return claims, nil
+}
+
+/* ===================== CORPORATE ===================== */
+
+type CorporateClaims struct {
+	CorporateID uint `json:"corporate_id"`
+	jwt.RegisteredClaims
+}
+
+func GenerateCorporateToken(corporateID uint) (string, error) {
+	claims := CorporateClaims{
+		CorporateID: corporateID,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
+		},
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString(getJWTSecret())
+}
+
+func ValidateCorporateToken(tokenString string) (*CorporateClaims, error) {
+	token, err := jwt.ParseWithClaims(
+		tokenString,
+		&CorporateClaims{},
+		func(token *jwt.Token) (interface{}, error) {
+			return getJWTSecret(), nil
+		},
+	)
+
+	if err != nil || !token.Valid {
+		return nil, err
+	}
+
+	claims, ok := token.Claims.(*CorporateClaims)
+	if !ok {
+		return nil, errors.New("invalid corporate claims")
 	}
 
 	return claims, nil

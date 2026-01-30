@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS users (
-  id SERIAL PRIMARY KEY,
+  id BIGSERIAL PRIMARY KEY,
   name VARCHAR(255) NOT NULL,
   username VARCHAR(50) UNIQUE,
   email VARCHAR(255) UNIQUE NOT NULL,
@@ -21,5 +21,5 @@ CREATE TABLE IF NOT EXISTS users (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
 
-INSERT INTO users (name, username, email, password, gender, provider)
-VALUES ('Viscata Pancen Uye', 'viscata', 'hr.viscata@gmail.com', 'qwe123', 'male', 'local');
+INSERT INTO users (id, name, username, email, password, gender, provider)
+VALUES (0, 'Viscata Pancen Uye', 'viscata', 'hr.viscata@gmail.com', '$2a$12$N9qo8uLOickgx2ZMRZo5i.ezvFjH8xGq5c6GJ6ZyM5u0X6f3mHk2K', 'male', 'local');

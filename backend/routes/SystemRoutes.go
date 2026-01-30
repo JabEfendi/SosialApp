@@ -37,20 +37,37 @@ func SystemRoutes(r *gin.Engine) {
         user.PUT("/withdraw-account/request-update", controllers.RequestUpdateWithdrawAccount)
         user.GET("/withdraw-account", controllers.GetMyWithdrawAccount)
         user.POST("/withdraw", controllers.WithdrawCommission)
+        user.POST("/agreements/join", controllers.JoinCorporate)
+		user.POST("/agreements/:id/revision", controllers.RequestAgreementRevision)
+		user.POST("/agreements/:id/approve", controllers.UserApproveAgreement)
+        user.POST("/agreements/:id/terminate", controllers.UserRequestTermination)
+        user.POST("/agreements/:id/terminate/approve", controllers.UserApproveTermination)
             
     kyc := r.Group("/kyc")
         kyc.POST("/", middlewares.AuthMiddleware(), controllers.SubmitOrUpdateKyc)
         kyc.POST("/approve", middlewares.AdminAuth(), controllers.ApproveKyc)
         kyc.POST("/reject", middlewares.AdminAuth(), controllers.RejectKyc)
         
-    room := r.Group("/room").Use(middlewares.AuthMiddleware())
-        room.POST("/", controllers.CreateRoom)
-        room.POST("/join", controllers.JoinRoom)
-        room.POST("/paidroom/join", controllers.JoinPaidRoom)
-        room.GET("/:id/participants", controllers.GetRoomParticipants)
-        room.GET("/:id", controllers.DetailRoom)
-        room.GET("/list", controllers.ListRoom)
-        room.PUT("/update/:id", controllers.UpdateRoom)
+    room := r.Group("/room")
+        room.Use(middlewares.AuthMiddleware())
+        {
+            room.POST("/", controllers.CreateRoom)
+            room.POST("/join", controllers.JoinRoom)
+            room.POST("/paidroom/join", controllers.JoinPaidRoom)
+            room.GET("/:id/participants", controllers.GetRoomParticipants)
+            room.GET("/:id", controllers.DetailRoom)
+            room.GET("/list", controllers.ListRoom)
+            room.PUT("/update/:id", controllers.UpdateRoom)
+        }
+        room.POST("/revenue/release", middlewares.AdminAuth(), func(c *gin.Context){
+            err := controllers.ReleaseRoomRevenue()
+            if err != nil {
+                c.JSON(500, gin.H{"error": err.Error()})
+                return
+            }
+            c.JSON(200, gin.H{"message": "Revenue released successfully"})
+        })
+        room.POST("/corporate-approve-payout", middlewares.CorporateAuth(), controllers.CorporateApprovePayout)
 
     roomchat := r.Group("/chatroom").Use(middlewares.AuthMiddleware())
         roomchat.POST("/send", controllers.SendMessage)
@@ -99,16 +116,13 @@ func SystemRoutes(r *gin.Engine) {
             admin.GET("/notifications/unread-count", controllers.GetUnreadNotificationCount)
             admin.PATCH("/notifications/:id/read", controllers.MarkNotificationAsRead)
             admin.PATCH("/notifications/read-all", controllers.MarkAllNotificationsAsRead)
-            admin.GET("/corporates", controllers.GetCorporates)
-            admin.POST("/corporates", middlewares.SuperAdminOnly(), controllers.CreateCorporate)
-            admin.PUT("/corporates/:id", middlewares.SuperAdminOnly(), controllers.UpdateCorporate)
-            admin.PATCH("/corporates/:id/status", middlewares.SuperAdminOnly(),  controllers.ChangeCorporateStatus)
             admin.GET("/reports", controllers.AdminListUserReports)
             admin.POST("/reports/:id/verify", controllers.AdminVerifyReport)
             admin.POST("/users/:id/status", controllers.AdminSuspendUser)
             admin.GET("/biostar", middlewares.SuperAdminOnly(), controllers.GetAllUsers) // karna namanya beda ini untuk get all user tapi khusus untuk superadmin
             admin.GET("/allstar", controllers.GetPublicUsers) // karna namanya beda ini untuk get all user tapi khusus untuk admin
             admin.GET("/all-community", controllers.GetAllCommunity)
+            admin.GET("/dashboard", controllers.AdminDashboard)
         }
 
     sys := r.Group("/system").Use(middlewares.AdminAuth())
@@ -123,4 +137,29 @@ func SystemRoutes(r *gin.Engine) {
     reports := r.Group("/reports").Use(middlewares.AuthMiddleware())
         reports.GET("/reasons", controllers.GetReportReasons)
         reports.POST("/", controllers.ReportUser)
+
+    corporate := r.Group("/corporate")
+        corporate.POST("/corpo-create", middlewares.SuperAdminOnly(), controllers.CreateCorporate)
+        corporate.POST("/register", controllers.CreateCorporateRequest)
+        corporate.POST("/verify-otp", controllers.VerifyCorporateOTP)
+        corporate.POST("/login", controllers.CorporateLogin)
+        corporate.GET("/detail", middlewares.CorporateAuth(), controllers.CorporateDetail)
+        corporate.PUT("/profile-update", middlewares.CorporateAuth(), controllers.UpdateCorporate)
+        corporate.GET("/users", middlewares.CorporateAuth(), controllers.GetCorporateUsers)
+        corporate.PATCH("/corporates/:id/status", middlewares.SuperAdminOnly(),  controllers.ChangeCorporateStatus)
+        corporate.POST("/agreements/:id/approve", middlewares.CorporateAuth(), controllers.CorporateApproveAgreement)
+		corporate.POST("/agreements/:id/send", middlewares.CorporateAuth(), controllers.SendAgreementToUser)
+        corporate.POST("/agreements/:id/terminate", controllers.CorporateRequestTermination)
+        corporate.POST("/agreements/:id/terminate/approve", controllers.CorporateApproveTermination)
+    
+    dashboard := r.Group("/api/corporate/dashboard")
+        dashboard.Use(middlewares.CorporateAuth())
+        {
+            dashboard.GET("/income", controllers.CorporateIncomeChart)
+            dashboard.GET("/withdraw-request", controllers.CorporateWithdrawRequestChart)
+            dashboard.GET("/user-withdraw", controllers.UserWithdrawAccumulationChart)
+
+            // untuk hit seluruh chart
+            dashboard.GET("", controllers.CorporateDashboard)
+        }
 }

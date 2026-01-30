@@ -21,7 +21,7 @@ type InputRoom struct {
     EndTime          *time.Time  `json:"end_time"`
     Duration         int     `json:"duration" binding:"required"`
     Capacity         int     `json:"capacity"`
-    FeePerPerson     float64 `json:"fee_per_person"`
+    FeePerPerson     int64 `json:"fee_per_person"`
     Gender           string  `json:"gender"`
     AgeGroup         string  `json:"age_group"`
     IsRegular        bool    `json:"is_regular"`
@@ -152,7 +152,6 @@ func CreateRoom(c *gin.Context) {
 	})
 }
 
-
 func JoinRoom(c *gin.Context) {
     var input struct {
         RoomID uint `json:"room_id"`
@@ -211,7 +210,6 @@ func JoinRoom(c *gin.Context) {
         "data":    participant,
     })
 }
-
 
 func GetRoomParticipants(c *gin.Context) {
     roomID := c.Param("id")

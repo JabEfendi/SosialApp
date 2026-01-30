@@ -2,6 +2,7 @@ package helpers
 
 import (
 	"fmt"
+	"time"
 
 	"backend/db"
 	"backend/models"
@@ -14,6 +15,19 @@ type AdminNotificationPayload struct {
 	Title   string
 	Message string
 }
+
+func CreateNotification(userID uint, title, message, notifType string) error {
+	notif := models.Notification{
+		UserID:    userID,
+		Title:    title,
+		Message:  message,
+		Type:     notifType,
+		IsRead:   false,
+		CreatedAt: time.Now(),
+	}
+	return db.DB.Create(&notif).Error
+}
+
 
 func CreateAdminNotification(p AdminNotificationPayload) error {
 	notif := models.AdminNotification{

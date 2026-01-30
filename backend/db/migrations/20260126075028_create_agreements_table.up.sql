@@ -1,0 +1,21 @@
+CREATE TABLE IF NOT EXISTS agreements (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    corporate_id INTEGER NOT NULL REFERENCES corporates(id) ON DELETE CASCADE,
+    agreement_number VARCHAR(100) NOT NULL UNIQUE,
+    start_date DATE,
+    end_date DATE,
+    revenue_user_percent NUMERIC(5,2),
+    revenue_corporate_percent NUMERIC(5,2),
+    revenue_type VARCHAR(20),
+    payment_period VARCHAR(20),
+    scope_description TEXT,
+    status VARCHAR(30) DEFAULT 'requested',
+    corporate_approved_at TIMESTAMP NULL,
+    user_approved_at TIMESTAMP NULL,
+    terminated_at TIMESTAMP NULL,
+    terminated_by VARCHAR(20),
+    termination_reason TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);

@@ -3,15 +3,14 @@ package middlewares
 import (
 	"net/http"
 	"strings"
-	"log"
 
 	"backend/helpers"
-
 	"github.com/gin-gonic/gin"
 )
 
-func SuperAdminOnly() gin.HandlerFunc {
+func CorporateAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
+
 		auth := c.GetHeader("Authorization")
 		if auth == "" {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
@@ -22,7 +21,7 @@ func SuperAdminOnly() gin.HandlerFunc {
 
 		tokenString := strings.TrimPrefix(auth, "Bearer ")
 
-		claims, err := helpers.ValidateAdminToken(tokenString)
+		claims, err := helpers.ValidateCorporateToken(tokenString)
 		if err != nil {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 				"error": "invalid token",
@@ -30,18 +29,7 @@ func SuperAdminOnly() gin.HandlerFunc {
 			return
 		}
 
-		log.Println("ROLE FROM JWT:", claims.Role)
-
-		if claims.Role != "superadmin" {
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
-				"error": "superadmin access only",
-			})
-			return
-		}
-
-		// optional: set ulang context biar handler bisa pakai
-		c.Set("admin_id", claims.AdminID)
-		c.Set("admin_role", claims.Role)
+		c.Set("corporate_id", claims.CorporateID)
 
 		c.Next()
 	}

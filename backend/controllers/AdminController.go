@@ -706,6 +706,162 @@ func AdminSuspendUser(c *gin.Context) {
 
 
 // ADMIN DASHBOARD
-func AdminDashboardStats(c *gin.Context) {
-	
+func AdminDashboard(c *gin.Context) {
+	dbConn := db.DB
+	filter := helpers.ParseDateFilter(c)
+	groupBy := c.DefaultQuery("group_by", "month")
+
+	// =================================================
+	// SUMMARY
+	// =================================================
+	var totalUser, activeUser, suspendUser int64
+	var freeRoom, corporate int64
+	var topUpIncome int64
+	var withdrawCount int64
+	var ticketPending, ticketProgress, ticketDone int64
+
+	dbConn.Model(&models.User{}).Count(&totalUser)
+	dbConn.Model(&models.User{}).Where("status='active'").Count(&activeUser)
+	dbConn.Model(&models.User{}).Where("status='suspend'").Count(&suspendUser)
+
+	dbConn.Model(&models.Room{}).
+		Where("is_paid=false AND created_at BETWEEN ? AND ?", filter.Start, filter.End).
+		Count(&freeRoom)
+
+	dbConn.Model(&models.Corporate{}).
+		Where("status='active'").
+		Count(&corporate)
+
+	dbConn.Model(&models.TopUpTransaction{}).
+		Where("status='PAID' AND created_at BETWEEN ? AND ?", filter.Start, filter.End).
+		Select("COALESCE(SUM(price),0)").
+		Scan(&topUpIncome)
+
+	dbConn.Model(&models.WithdrawAccountRequest{}).
+		Where("status='approved' AND created_at BETWEEN ? AND ?", filter.Start, filter.End).
+		Count(&withdrawCount)
+
+	dbConn.Model(&models.UserReport{}).
+		Where("status='pending' AND created_at BETWEEN ? AND ?", filter.Start, filter.End).
+		Count(&ticketPending)
+
+	dbConn.Model(&models.UserReport{}).
+		Where("status='processing' AND created_at BETWEEN ? AND ?", filter.Start, filter.End).
+		Count(&ticketProgress)
+
+	dbConn.Model(&models.UserReport{}).
+		Where("status='resolved' AND created_at BETWEEN ? AND ?", filter.Start, filter.End).
+		Count(&ticketDone)
+
+	// =================================================
+	// USER JOIN CHART
+	// =================================================
+	type UserChartRow struct {
+		Label string
+		Total int64
+	}
+
+	var userChart []UserChartRow
+	userQuery := `
+		SELECT TO_CHAR(created_at, 'Mon') AS label, COUNT(*) AS total
+		FROM users
+		WHERE created_at BETWEEN ? AND ?
+		GROUP BY label, DATE_TRUNC('month', created_at)
+		ORDER BY DATE_TRUNC('month', created_at)
+	`
+	dbConn.Raw(userQuery, filter.Start, filter.End).Scan(&userChart)
+
+	userLabels := []string{}
+	userData := []int64{}
+	for _, r := range userChart {
+		userLabels = append(userLabels, r.Label)
+		userData = append(userData, r.Total)
+	}
+
+	// =================================================
+	// TRANSACTION CHART
+	// =================================================
+	type TxChartRow struct {
+		Label    string
+		TopUp   int64
+		Withdraw int64
+	}
+
+	var txChart []TxChartRow
+	txQuery := `
+		SELECT 
+			TO_CHAR(created_at, 'Mon') AS label,
+			SUM(CASE WHEN type='topup' THEN amount ELSE 0 END) AS top_up,
+			SUM(CASE WHEN type='withdraw' THEN amount ELSE 0 END) AS withdraw
+		FROM (
+			SELECT created_at, price AS amount, 'topup' AS type
+			FROM top_up_transactions WHERE status='PAID'
+			UNION ALL
+			SELECT created_at, amount, 'withdraw' AS type
+			FROM withdraw_account_requests WHERE status='approved'
+		) t
+		WHERE created_at BETWEEN ? AND ?
+		GROUP BY label, DATE_TRUNC('month', created_at)
+		ORDER BY DATE_TRUNC('month', created_at)
+	`
+
+	dbConn.Raw(txQuery, filter.Start, filter.End).Scan(&txChart)
+
+	txLabels := []string{}
+	topUpData := []int64{}
+	withdrawData := []int64{}
+	for _, r := range txChart {
+		txLabels = append(txLabels, r.Label)
+		topUpData = append(topUpData, r.TopUp)
+		withdrawData = append(withdrawData, r.Withdraw)
+	}
+
+	// =================================================
+	// RESPONSE FINAL
+	// =================================================
+	c.JSON(http.StatusOK, gin.H{
+		"filter": gin.H{
+			"label":      filter.Label,
+			"start_date": filter.Start.Format("2006-01-02"),
+			"end_date":   filter.End.Format("2006-01-02"),
+			"group_by":   groupBy,
+		},
+		"summary": gin.H{
+			"users": gin.H{
+				"total":   totalUser,
+				"active":  activeUser,
+				"suspend": suspendUser,
+			},
+			"rooms": gin.H{
+				"free_created": freeRoom,
+			},
+			"corporate": gin.H{
+				"total": corporate,
+			},
+			"transactions": gin.H{
+				"top_up_income":  topUpIncome,
+				"withdraw_count": withdrawCount,
+			},
+			"tickets": gin.H{
+				"pending":  ticketPending,
+				"progress": ticketProgress,
+				"done":     ticketDone,
+			},
+		},
+		"charts": gin.H{
+			"users": gin.H{
+				"labels": userLabels,
+				"datasets": []gin.H{
+					{"label": "User Join", "data": userData},
+				},
+			},
+			"transactions": gin.H{
+				"labels": txLabels,
+				"datasets": []gin.H{
+					{"label": "Top Up", "data": topUpData},
+					{"label": "Withdraw", "data": withdrawData},
+				},
+			},
+		},
+	})
 }
