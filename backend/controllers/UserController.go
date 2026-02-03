@@ -846,53 +846,45 @@ func UpdateUser(c *gin.Context) {
 }
 
 
-// _________________________________________________________________________________________________
-// upload photo
+// __upload photo_______________________________________________________________________________________________
 // func UploadAvatar(c *gin.Context) {
 //     userID := c.PostForm("user_id")
 //     if userID == "" {
 //         c.JSON(400, gin.H{"error": "user_id is required"})
 //         return
 //     }
-
 //     file, err := c.FormFile("photo")
 //     if err != nil {
 //         c.JSON(400, gin.H{"error": "photo file is required"})
 //         return
 //     }
-
 //     if !strings.Contains(file.Header.Get("Content-Type"), "image") {
 //         c.JSON(400, gin.H{"error": "Only image files are allowed"})
 //         return
 //     }
-
 //     filename := fmt.Sprintf("%s-%d%s",
 //         userID,
 //         time.Now().Unix(),
 //         filepath.Ext(file.Filename),
 //     )
-
 //     uploadPath := "uploads/avatars"
 //     os.MkdirAll(uploadPath, os.ModePerm)
-
 //     fullPath := uploadPath + "/" + filename
 //     baseURL := "https://testtestdomaingweh.com/"
 //     avatarURL := baseURL + fullPath
-
 //     if err := c.SaveUploadedFile(file, fullPath); err != nil {
 //         c.JSON(500, gin.H{"error": "Failed to save file"})
 //         return
 //     }
-
 //     db.DB.Model(&models.User{}).
 //         Where("id = ?", userID).
 //         Update("avatar", avatarURL)
-
 //     c.JSON(200, gin.H{
 //         "message": "Profile photo updated",
 //         "avatar_url": avatarURL,
 //     })
 // }
+
 func UploadAvatar(c *gin.Context) {
     userID := c.PostForm("user_id")
     if userID == "" {
@@ -1288,7 +1280,6 @@ func GetPublicUsers(c *gin.Context) {
 		"data":    users,
 	})
 }
-
 
 func Ceklog(c *gin.Context) {
 	var login_logs []models.LoginLog

@@ -7,7 +7,8 @@ import (
 	"backend/models"
 	"time"
 	"fmt"
-
+	
+	"github.com/pquerna/otp/totp"
 	"golang.org/x/crypto/bcrypt"
 	"github.com/gin-gonic/gin"
 )
@@ -136,22 +137,51 @@ func CreateCorporate(c *gin.Context) {
 
 //CORPORATE
 type TempCorporate struct {
-	ID          uint `gorm:"primaryKey"`
+	ID uint `gorm:"primaryKey"`
+
+	// corporate identity
 	Name        string
-	Email       string
-	Password    string
 	Description string
 	Logo        string
-	CreatedAt   time.Time
+	EmailCorporate string
+	Phone       string
+	Address     string
+	City        string
+	State       string
+	Country     string
+	ZipCode     string
+	Status      string
+
+	// PIC (login account)
+	Email     string
+	Password  string
+	NamePIC   string
+	PhonePIC  string
+	AgePIC    int
+
+	CreatedAt time.Time
 }
 
 func CreateCorporateRequest(c *gin.Context) {
 	var input struct {
-		Name        string `json:"name" binding:"required"`
-		Email       string `json:"email" binding:"required,email"`
-		Password    string `json:"password" binding:"required,min=6"`
-		Description string `json:"description"`
-		Logo        string `json:"logo"`
+		// corporate
+		Name           string `json:"name" binding:"required"`
+		Description    string `json:"description"`
+		Logo           string `json:"logo"`
+		EmailCorporate string `json:"email_corporate"`
+		Phone          string `json:"phone"`
+		Address        string `json:"address"`
+		City           string `json:"city"`
+		State          string `json:"state"`
+		Country        string `json:"country"`
+		ZipCode        string `json:"zip_code"`
+
+		// PIC (login)
+		Email    string `json:"email" binding:"required,email"`
+		Password string `json:"password" binding:"required,min=6"`
+		NamePIC  string `json:"name_PIC"`
+		PhonePIC string `json:"phone_PIC"`
+		AgePIC   int    `json:"age_PIC"`
 	}
 
 	if err := c.ShouldBindJSON(&input); err != nil {
@@ -161,24 +191,42 @@ func CreateCorporateRequest(c *gin.Context) {
 
 	var existing models.Corporate
 	if err := db.DB.Where("email = ?", input.Email).First(&existing).Error; err == nil {
-		c.JSON(400, gin.H{"error": "Email already registered"})
+		c.JSON(400, gin.H{"error": "PIC email already registered"})
 		return
 	}
 
-	db.DB.Where("email = ?", input.Email).Delete(&models.Corporate{})
 	db.DB.Where("email = ?", input.Email).Delete(&models.OTPVerification{})
 
-	hashed, _ := bcrypt.GenerateFromPassword([]byte(input.Password), bcrypt.DefaultCost)
-
-	temp := models.Corporate{
-		Name:        input.Name,
-		Email:       input.Email,
-		Password:    string(hashed),
-		Description: input.Description,
-		Logo:        input.Logo,
+	hashed, err := bcrypt.GenerateFromPassword([]byte(input.Password), bcrypt.DefaultCost)
+	if err != nil {
+		c.JSON(500, gin.H{"error": "failed to hash password"})
+		return
 	}
 
-	db.DB.Create(&temp)
+	corporate := models.Corporate{
+		Name:           input.Name,
+		Description:    input.Description,
+		Logo:           input.Logo,
+		EmailCorporate: input.EmailCorporate,
+		Phone:          input.Phone,
+		Address:        input.Address,
+		City:           input.City,
+		State:          input.State,
+		Country:        input.Country,
+		ZipCode:        input.ZipCode,
+		Status:         "pending",
+
+		Email:    input.Email,
+		Password: string(hashed),
+		NamePIC:  input.NamePIC,
+		PhonePIC: input.PhonePIC,
+		AgePIC:   input.AgePIC,
+	}
+
+	if err := db.DB.Create(&corporate).Error; err != nil {
+		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
 
 	otp := helpers.GenerateOTP()
 	db.DB.Create(&models.OTPVerification{
@@ -194,7 +242,7 @@ func CreateCorporateRequest(c *gin.Context) {
 	)
 
 	c.JSON(200, gin.H{
-		"message": "OTP sent to corporate email",
+		"message": "Corporate registered, OTP sent to PIC email",
 	})
 }
 
@@ -319,6 +367,88 @@ func UpdateCorporate(c *gin.Context) {
 	})
 }
 
+func RegisterCorporate2FA(c *gin.Context) {
+	corporateID := c.MustGet("corporate_id").(uint)
+
+	var corporate models.Corporate
+	if err := db.DB.First(&corporate, corporateID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "corporate not found"})
+		return
+	}
+
+	if corporate.TwoFAEnabled {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "2fa already enabled"})
+		return
+	}
+
+	// 🔒 prevent regenerate
+	if corporate.TwoFASecret != "" {
+		c.JSON(http.StatusOK, gin.H{
+			"message": "2fa already registered",
+			"data": gin.H{
+				"secret": corporate.TwoFASecret,
+			},
+		})
+		return
+	}
+
+	secret, err := totp.Generate(totp.GenerateOpts{
+		Issuer:      "Sosial App",
+		AccountName: corporate.Email,
+	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to generate secret"})
+		return
+	}
+
+	corporate.TwoFASecret = secret.Secret()
+	db.DB.Save(&corporate)
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "2fa secret generated",
+		"data": gin.H{
+			"qr_url": secret.URL(),
+			"secret": secret.Secret(),
+		},
+	})
+}
+
+func EnableCorporate2FA(c *gin.Context) {
+	var input struct {
+		OTP string `json:"otp" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	corporateID := c.MustGet("corporate_id").(uint)
+
+	var corporate models.Corporate
+	if err := db.DB.First(&corporate, corporateID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "corporate not found"})
+		return
+	}
+
+	if corporate.TwoFASecret == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "2fa not registered"})
+		return
+	}
+
+	if !totp.Validate(input.OTP, corporate.TwoFASecret) {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid otp"})
+		return
+	}
+
+	corporate.TwoFAEnabled = true
+	db.DB.Save(&corporate)
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "2fa enabled successfully",
+	})
+}
+
 func CorporateLogin(c *gin.Context) {
 	var input struct {
 		Email    string `json:"email" binding:"required,email"`
@@ -326,39 +456,84 @@ func CorporateLogin(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(),
-		})
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
 	var corporate models.Corporate
 	if err := db.DB.Where("email = ?", input.Email).First(&corporate).Error; err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"error": "email or password is incorrect",
-		})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "email or password is incorrect"})
 		return
 	}
 
 	if corporate.Status != "active" {
-		c.JSON(http.StatusForbidden, gin.H{
-			"error": "account is not active",
-		})
+		c.JSON(http.StatusForbidden, gin.H{"error": "account is not active"})
 		return
 	}
 
 	if !helpers.CheckPasswordHash(input.Password, corporate.Password) {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"error": "email or password is incorrect",
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "email or password is incorrect"})
+		return
+	}
+
+	// 🔐 2FA flow
+	if corporate.TwoFAEnabled {
+		tempToken, err := helpers.GenerateTemp2FAToken(corporate.ID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to generate temp token"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"message": "2fa required",
+			"data": gin.H{
+				"require_2fa": true,
+				"temp_token": tempToken,
+			},
 		})
 		return
 	}
 
+	token, _ := helpers.GenerateCorporateToken(corporate.ID)
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "login success",
+		"data": gin.H{"token": token},
+	})
+}
+
+func VerifyCorporate2FA(c *gin.Context) {
+	var input struct {
+		OTP string `json:"otp" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	corporateID := c.MustGet("corporate_id").(uint)
+
+	var corporate models.Corporate
+	if err := db.DB.First(&corporate, corporateID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "corporate not found"})
+		return
+	}
+
+	if corporate.TwoFASecret == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "2fa not registered"})
+		return
+	}
+
+	if !totp.Validate(input.OTP, corporate.TwoFASecret) {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid otp"})
+		return
+	}
+
+	// ✅ issue real JWT
 	token, err := helpers.GenerateCorporateToken(corporate.ID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "failed to generate token",
-		})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to generate token"})
 		return
 	}
 
@@ -366,11 +541,6 @@ func CorporateLogin(c *gin.Context) {
 		"message": "login success",
 		"data": gin.H{
 			"token": token,
-			"corporate": gin.H{
-				"id":    corporate.ID,
-				"name":  corporate.Name,
-				"email": corporate.Email,
-			},
 		},
 	})
 }
